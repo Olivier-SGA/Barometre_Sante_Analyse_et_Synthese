@@ -332,6 +332,11 @@
             </div>
 
             <div class="chart-container">
+                <div class="chart-title">Notes Moyennes de Satisfaction (/10)</div>
+                <canvas id="satisfactionChart"></canvas>
+            </div>
+
+            <div class="chart-container">
                 <div class="chart-title">Évaluation de la Santé (Notes moyennes)</div>
                 <canvas id="healthChart"></canvas>
             </div>
@@ -516,6 +521,9 @@
                     .reduce((sum, r) => sum + parseInt(r.sante_psychologique), 0) / 
                     this.responses.filter(r => r.sante_psychologique).length || 0;
 
+                // Note moyenne globale de santé
+                const avgSanteGlobale = (avgSantePhysique + avgSantePsycho) / 2;
+
                 // Niveau de stress
                 const stressedResponses = this.responses.filter(r => 
                     r.sources_stress && r.sources_stress.length > 0 && 
@@ -523,20 +531,159 @@
                 ).length;
                 const stressLevel = (stressedResponses / total) * 100;
 
+                // Calcul des notes moyennes pour toutes les questions de satisfaction
+                const satisfactionScores = this.calculateSatisfactionScores();
+
                 // Mise à jour de l'interface
                 document.getElementById('totalResponses').textContent = total;
                 document.getElementById('avgSantePhysique').textContent = avgSantePhysique.toFixed(1);
                 document.getElementById('avgSantePsycho').textContent = avgSantePsycho.toFixed(1);
                 document.getElementById('stressLevel').textContent = Math.round(stressLevel) + '%';
+
+                // Stocker les données calculées pour le PDF
+                this.calculatedStats = {
+                    total,
+                    avgSantePhysique,
+                    avgSantePsycho,
+                    avgSanteGlobale,
+                    stressLevel,
+                    satisfactionScores
+                };
+            }
+
+            calculateSatisfactionScores() {
+                const scores = {};
+                
+                // Questions avec échelle de satisfaction (reconverties en notes /10)
+                const satisfactionMappings = {
+                    'gestion_pression': {
+                        'tres_bien': 10,
+                        'bien': 8,
+                        'moyennement': 6,
+                        'difficilement': 4,
+                        'tres_difficilement': 2
+                    },
+                    'climat_social': {
+                        'tres_bon': 10,
+                        'bon': 8,
+                        'correct': 6,
+                        'difficile': 4,
+                        'tres_difficile': 2
+                    },
+                    'qvt': {
+                        'excellente': 10,
+                        'bonne': 8,
+                        'correcte': 6,
+                        'decevante': 4,
+                        'nocive': 2
+                    },
+                    'qualite_sommeil': {
+                        'correct_qualite': 10,
+                        'correct': 7,
+                        'perturbe': 4,
+                        'tres_mauvais': 2
+                    }
+                };
+
+                // Questions binaires (oui/non reconverties en notes)
+                const binaryMappings = {
+                    'charge_travail': { 'oui': 10, 'non': 3 },
+                    'sommeil_suffisant': { 'oui': 10, 'non': 4 },
+                    'alimentation_saine': { 'oui': 8, 'non': 4 },
+                    'offre_restauration': { 'oui': 8, 'non': 3 }
+                };
+
+                // Calcul des moyennes pour chaque question
+                Object.entries(satisfactionMappings).forEach(([question, mapping]) => {
+                    const values = this.responses
+                        .filter(r => r[question])
+                        .map(r => mapping[r[question]] || 0);
+                    
+                    if (values.length > 0) {
+                        scores[question] = values.reduce((sum, val) => sum + val, 0) / values.length;
+                    }
+                });
+
+                Object.entries(binaryMappings).forEach(([question, mapping]) => {
+                    const values = this.responses
+                        .filter(r => r[question])
+                        .map(r => mapping[r[question]] || 0);
+                    
+                    if (values.length > 0) {
+                        scores[question] = values.reduce((sum, val) => sum + val, 0) / values.length;
+                    }
+                });
+
+                return scores;
             }
 
             createCharts() {
+                this.createSatisfactionChart();
                 this.createProfileChart();
                 this.createAgeChart();
                 this.createHealthChart();
                 this.createQvtChart();
                 this.createStressChart();
                 this.createTeletravailChart();
+            }
+
+            createSatisfactionChart() {
+                const ctx = document.getElementById('satisfactionChart').getContext('2d');
+                const scores = this.calculatedStats.satisfactionScores;
+                
+                const labels = {
+                    'gestion_pression': 'Gestion de la pression',
+                    'climat_social': 'Climat social',
+                    'qvt': 'Qualité de vie au travail',
+                    'qualite_sommeil': 'Qualité du sommeil',
+                    'charge_travail': 'Charge de travail raisonnable',
+                    'sommeil_suffisant': 'Temps de sommeil suffisant',
+                    'alimentation_saine': 'Alimentation saine',
+                    'offre_restauration': 'Offre de restauration'
+                };
+
+                const chartData = Object.entries(scores)
+                    .filter(([key, value]) => value > 0)
+                    .sort(([,a], [,b]) => b - a);
+
+                if (this.charts.satisfaction) this.charts.satisfaction.destroy();
+                this.charts.satisfaction = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: chartData.map(([key]) => labels[key] || key),
+                        datasets: [{
+                            label: 'Note moyenne (/10)',
+                            data: chartData.map(([,value]) => value),
+                            backgroundColor: chartData.map(([,value]) => {
+                                if (value >= 8) return '#48bb78'; // Vert
+                                if (value >= 6) return '#ed8936'; // Orange
+                                return '#f56565'; // Rouge
+                            })
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 10,
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    maxRotation: 45
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        }
+                    }
+                });
             }
 
             createProfileChart() {
@@ -785,7 +932,7 @@
                 });
             }
 
-            exportToPDF() {
+            async exportToPDF() {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
                 
@@ -814,29 +961,202 @@
                 yPosition += 10;
 
                 doc.setFontSize(12);
-                const totalResponses = this.responses.length;
-                const avgSantePhysique = this.responses
-                    .filter(r => r.sante_physique)
-                    .reduce((sum, r) => sum + parseInt(r.sante_physique), 0) / 
-                    this.responses.filter(r => r.sante_physique).length || 0;
-                const avgSantePsycho = this.responses
-                    .filter(r => r.sante_psychologique)
-                    .reduce((sum, r) => sum + parseInt(r.sante_psychologique), 0) / 
-                    this.responses.filter(r => r.sante_psychologique).length || 0;
-
-                const stats = [
-                    `• Nombre de répondants : ${totalResponses}`,
-                    `• Santé physique moyenne : ${avgSantePhysique.toFixed(1)}/10`,
-                    `• Santé psychologique moyenne : ${avgSantePsycho.toFixed(1)}/10`,
-                    `• Période d'analyse : ${new Date().getFullYear()}`
+                const stats = this.calculatedStats;
+                const generalStats = [
+                    `• Nombre de répondants : ${stats.total}`,
+                    `• Santé physique moyenne : ${stats.avgSantePhysique.toFixed(1)}/10`,
+                    `• Santé psychologique moyenne : ${stats.avgSantePsycho.toFixed(1)}/10`,
+                    `• Note santé globale : ${stats.avgSanteGlobale.toFixed(1)}/10`,
+                    `• Collaborateurs en situation de stress : ${Math.round(stats.stressLevel)}%`
                 ];
 
-                stats.forEach(stat => {
+                generalStats.forEach(stat => {
                     doc.text(stat, margin, yPosition);
                     yPosition += 8;
                 });
 
-                yPosition += 10;
+                yPosition += 15;
+
+                // Notes moyennes de satisfaction
+                doc.setFontSize(14);
+                doc.text('NOTES MOYENNES DE SATISFACTION', margin, yPosition);
+                yPosition += 8;
+
+                const satisfactionLabels = {
+                    'gestion_pression': 'Gestion de la pression',
+                    'climat_social': 'Climat social',
+                    'qvt': 'Qualité de vie au travail',
+                    'qualite_sommeil': 'Qualité du sommeil',
+                    'charge_travail': 'Charge de travail raisonnable',
+                    'sommeil_suffisant': 'Temps de sommeil suffisant',
+                    'alimentation_saine': 'Alimentation saine',
+                    'offre_restauration': 'Offre de restauration'
+                };
+
+                doc.setFontSize(10);
+                const sortedSatisfaction = Object.entries(stats.satisfactionScores)
+                    .filter(([,value]) => value > 0)
+                    .sort(([,a], [,b]) => b - a);
+
+                sortedSatisfaction.forEach(([key, score]) => {
+                    const label = satisfactionLabels[key] || key;
+                    const color = score >= 8 ? '🟢' : score >= 6 ? '🟡' : '🔴';
+                    doc.text(`${color} ${label} : ${score.toFixed(1)}/10`, margin, yPosition);
+                    yPosition += 6;
+                });
+
+                // Nouvelle page pour les graphiques
+                doc.addPage();
+                yPosition = 30;
+
+                // Graphique de satisfaction
+                doc.setFontSize(14);
+                doc.text('GRAPHIQUE DES NOTES DE SATISFACTION', margin, yPosition);
+                yPosition += 15;
+
+                try {
+                    const satisfactionCanvas = document.getElementById('satisfactionChart');
+                    const satisfactionImgData = satisfactionCanvas.toDataURL('image/png');
+                    doc.addImage(satisfactionImgData, 'PNG', margin, yPosition, pageWidth - 2*margin, 80);
+                    yPosition += 90;
+                } catch (error) {
+                    console.log('Erreur graphique satisfaction:', error);
+                }
+
+                // Nouvelle page si nécessaire
+                if (yPosition > 200) {
+                    doc.addPage();
+                    yPosition = 30;
+                }
+
+                // Répartition par profil avec graphique
+                doc.setFontSize(14);
+                doc.text('REPARTITION PAR PROFIL', margin, yPosition);
+                yPosition += 15;
+
+                try {
+                    const profileCanvas = document.getElementById('profileChart');
+                    const profileImgData = profileCanvas.toDataURL('image/png');
+                    doc.addImage(profileImgData, 'PNG', margin, yPosition, 80, 60);
+                } catch (error) {
+                    console.log('Erreur graphique profil:', error);
+                }
+
+                // Statistiques à côté du graphique
+                const profileCounts = {};
+                this.responses.forEach(r => {
+                    if (r.profil) {
+                        profileCounts[r.profil] = (profileCounts[r.profil] || 0) + 1;
+                    }
+                });
+
+                const profileLabels = {
+                    'auditeur': 'Auditeur/Auditrice',
+                    'chef_mission': 'Chef de mission',
+                    'directeur_mission': 'Directeur de mission'
+                };
+
+                let textY = yPosition + 10;
+                doc.setFontSize(10);
+                Object.entries(profileCounts).forEach(([key, count]) => {
+                    const percentage = ((count / stats.total) * 100).toFixed(1);
+                    doc.text(`• ${profileLabels[key] || key}`, margin + 90, textY);
+                    doc.text(`${count} (${percentage}%)`, margin + 140, textY);
+                    textY += 8;
+                });
+
+                yPosition += 80;
+
+                // QVT avec graphique
+                doc.setFontSize(14);
+                doc.text('QUALITE DE VIE AU TRAVAIL', margin, yPosition);
+                yPosition += 15;
+
+                try {
+                    const qvtCanvas = document.getElementById('qvtChart');
+                    const qvtImgData = qvtCanvas.toDataURL('image/png');
+                    doc.addImage(qvtImgData, 'PNG', margin, yPosition, 80, 60);
+                } catch (error) {
+                    console.log('Erreur graphique QVT:', error);
+                }
+
+                const qvtCounts = {};
+                this.responses.forEach(r => {
+                    if (r.qvt) {
+                        qvtCounts[r.qvt] = (qvtCounts[r.qvt] || 0) + 1;
+                    }
+                });
+
+                const qvtLabels = {
+                    'excellente': 'Excellente',
+                    'bonne': 'Bonne',
+                    'correcte': 'Correcte',
+                    'decevante': 'Décevante',
+                    'nocive': 'Nocive'
+                };
+
+                textY = yPosition + 10;
+                doc.setFontSize(10);
+                Object.entries(qvtCounts).forEach(([key, count]) => {
+                    const percentage = ((count / stats.total) * 100).toFixed(1);
+                    doc.text(`• ${qvtLabels[key] || key}`, margin + 90, textY);
+                    doc.text(`${count} (${percentage}%)`, margin + 140, textY);
+                    textY += 8;
+                });
+
+                yPosition += 80;
+
+                // Nouvelle page pour les sources de stress
+                doc.addPage();
+                yPosition = 30;
+
+                doc.setFontSize(14);
+                doc.text('PRINCIPALES SOURCES DE STRESS', margin, yPosition);
+                yPosition += 15;
+
+                try {
+                    const stressCanvas = document.getElementById('stressChart');
+                    const stressImgData = stressCanvas.toDataURL('image/png');
+                    doc.addImage(stressImgData, 'PNG', margin, yPosition, pageWidth - 2*margin, 80);
+                    yPosition += 90;
+                } catch (error) {
+                    console.log('Erreur graphique stress:', error);
+                }
+
+                // Recommandations
+                doc.setFontSize(14);
+                doc.text('RECOMMANDATIONS', margin, yPosition);
+                yPosition += 8;
+
+                doc.setFontSize(10);
+                const recommendations = this.generateRecommendations();
+                recommendations.forEach(rec => {
+                    const lines = doc.splitTextToSize(`• ${rec}`, pageWidth - 2 * margin);
+                    lines.forEach(line => {
+                        if (yPosition > 280) {
+                            doc.addPage();
+                            yPosition = 30;
+                        }
+                        doc.text(line, margin, yPosition);
+                        yPosition += 6;
+                    });
+                    yPosition += 3;
+                });
+
+                // Pied de page
+                const pageCount = doc.internal.getNumberOfPages();
+                for (let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(8);
+                    doc.text(`Page ${i} sur ${pageCount}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+                }
+
+                // Sauvegarde
+                const fileName = `Barometre_Sante_2025_Synthese_${new Date().toISOString().slice(0, 10)}.pdf`;
+                doc.save(fileName);
+
+                this.showAlert(`Rapport PDF généré avec graphiques : ${fileName}`, 'success');
+            }
 
                 // Répartition par profil
                 doc.setFontSize(14);
