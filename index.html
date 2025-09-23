@@ -456,11 +456,15 @@
             }
 
             validateResponseData(data) {
-                // Vérification basique de la structure des données
-                return data && 
+                console.log('Validation des données:', data);
+                // Vérification plus permissive de la structure des données
+                const isValid = data && 
+                       typeof data === 'object' &&
                        data.id && 
-                       data.cabinet === 'Saint Germain Audit' &&
-                       data.version_barometre === '2025.1';
+                       (data.cabinet === 'Saint Germain Audit' || data.version_barometre);
+                       
+                console.log('Données valides:', isValid);
+                return isValid;
             }
 
             addFileToList(fileName, container) {
@@ -477,12 +481,24 @@
             }
 
             analyzeData() {
-                if (this.responses.length === 0) return;
+                console.log('Début de l\'analyse, nombre de réponses:', this.responses.length);
+                
+                if (this.responses.length === 0) {
+                    this.showAlert('Aucune donnée à analyser', 'error');
+                    return;
+                }
 
-                this.calculateStatistics();
-                this.createCharts();
-                document.getElementById('analysisSection').style.display = 'block';
-                document.getElementById('analysisSection').scrollIntoView({ behavior: 'smooth' });
+                try {
+                    this.showAlert('Analyse en cours...', 'info');
+                    this.calculateStatistics();
+                    this.createCharts();
+                    document.getElementById('analysisSection').style.display = 'block';
+                    document.getElementById('analysisSection').scrollIntoView({ behavior: 'smooth' });
+                    this.showAlert('Analyse terminée avec succès', 'success');
+                } catch (error) {
+                    console.error('Erreur lors de l\'analyse:', error);
+                    this.showAlert(`Erreur lors de l'analyse: ${error.message}`, 'error');
+                }
             }
 
             calculateStatistics() {
@@ -705,7 +721,7 @@
 
                 if (this.charts.stress) this.charts.stress.destroy();
                 this.charts.stress = new Chart(ctx, {
-                    type: 'horizontalBar',
+                    type: 'bar',
                     data: {
                         labels: Object.keys(stressCounts).map(k => stressLabels[k] || k),
                         datasets: [{
@@ -716,6 +732,7 @@
                     },
                     options: {
                         responsive: true,
+                        indexAxis: 'y',
                         scales: {
                             x: {
                                 beginAtZero: true,
