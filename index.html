@@ -1,453 +1,291 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Baromètre Santé 2025 - Analyse</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .header {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        .upload-section {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-        .upload-zone {
-            border: 2px dashed #ccc;
-            padding: 40px;
-            text-align: center;
-            border-radius: 10px;
-            cursor: pointer;
-        }
-        .btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 5px;
-        }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .analysis-section {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            display: none;
-        }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .stat-card {
-            background: #f0f4ff;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-        }
-        .stat-number { font-size: 2em; font-weight: bold; color: #667eea; }
-        .chart-container {
-            margin: 20px 0;
-            padding: 20px;
-            background: #f9f9f9;
-            border-radius: 10px;
-        }
-        .alert {
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 5px;
-        }
-        .alert-success { background: #d4edda; border: 1px solid #c3e6cb; }
-        .alert-error { background: #f8d7da; border: 1px solid #f5c6cb; }
-        .alert-info { background: #d1ecf1; border: 1px solid #bee5eb; }
-        .file-list { margin-top: 20px; }
-        .file-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px;
-            border-bottom: 1px solid #eee;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Baromètre Santé 2025 - Analyse des Résultats</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6; color: #333;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh; padding: 20px;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .header {
+      text-align: center; background: rgba(255, 255, 255, 0.95);
+      border-radius: 20px; padding: 30px; margin-bottom: 30px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+    .header h1 { color: #2d3748; font-size: 2.5rem; margin-bottom: 10px; font-weight: 700; }
+    .header h2 { color: #667eea; font-size: 1.3rem; margin-bottom: 20px; font-weight: 500; }
+    .upload-section, .analysis-section {
+      background: rgba(255, 255, 255, 0.95); border-radius: 20px;
+      padding: 30px; margin-bottom: 30px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+    .upload-zone {
+      border: 3px dashed #667eea; border-radius: 15px; padding: 40px;
+      text-align: center; background: #f8f9ff; transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    .upload-zone:hover { border-color: #764ba2; background: #f0f4ff; }
+    .upload-zone.dragover { border-color: #764ba2; background: #e6f3ff; transform: scale(1.02); }
+    .upload-icon { font-size: 3rem; color: #667eea; margin-bottom: 15px; }
+    .upload-text { font-size: 1.2rem; color: #4a5568; margin-bottom: 15px; }
+    .upload-subtext { color: #666; font-size: 0.9rem; }
+    .file-input { display: none; }
+    .btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white; border: none; padding: 12px 25px;
+      font-size: 1rem; font-weight: 600;
+      border-radius: 10px; cursor: pointer;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      margin: 10px 5px;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(102,126,234,0.3); }
+    .file-list { margin-top: 20px; background: white; border-radius: 10px; padding: 20px; }
+    .file-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #e2e8f0; }
+    .file-item:last-child { border-bottom: none; }
+    .file-info { display: flex; align-items: center; gap: 10px; }
+    .file-icon { color: #667eea; font-size: 1.2rem; }
+    .remove-file { background: #e53e3e; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8rem; }
+    .analysis-section { display: none; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+    .stat-card {
+      background: #f8f9ff; padding: 20px; border-radius: 10px;
+      border-left: 5px solid #667eea; text-align: center;
+    }
+    .stat-number { font-size: 2rem; font-weight: bold; color: #667eea; margin-bottom: 5px; }
+    .stat-label { color: #666; font-size: 0.9rem; }
+    .chart-container { margin: 30px 0; padding: 20px; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .chart-title { font-size: 1.2rem; font-weight: 600; color: #2d3748; margin-bottom: 15px; text-align: center; }
+    .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+    .alert-success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+    .alert-error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+    .alert-info { background: #cce7ff; border: 1px solid #b3d9ff; color: #004085; }
+    @media (max-width: 768px) {
+      .container { padding: 10px; }
+      .header h1 { font-size: 2rem; }
+      .stats-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>Analyse Baromètre Santé 2025</h1>
-            <p>Cabinet Saint Germain Audit</p>
-        </div>
-
-        <div class="upload-section">
-            <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
-                <h3>📁 Importer les fichiers JSON</h3>
-                <p>Cliquez pour sélectionner les fichiers de réponses</p>
-                <input type="file" id="fileInput" multiple accept=".json" style="display: none">
-            </div>
-            
-            <div id="fileList" class="file-list" style="display: none"></div>
-            
-            <div style="text-align: center; margin-top: 20px;">
-                <button id="analyzeBtn" class="btn" disabled onclick="analyzeData()">Analyser</button>
-                <button class="btn" onclick="clearAll()" style="background: #dc3545;">Effacer</button>
-            </div>
-            
-            <div id="alerts"></div>
-        </div>
-
-        <div class="analysis-section" id="analysisSection">
-            <h2>Résultats de l'Analyse</h2>
-            
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-number" id="totalResponses">0</div>
-                    <div>Réponses</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="avgHealth">0</div>
-                    <div>Santé moyenne (/10)</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="stressPercent">0%</div>
-                    <div>Stress</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="qvtScore">0</div>
-                    <div>QVT moyenne (/10)</div>
-                </div>
-            </div>
-
-            <div class="chart-container">
-                <h3>Profils Professionnels</h3>
-                <canvas id="profileChart" width="400" height="200"></canvas>
-            </div>
-
-            <div class="chart-container">
-                <h3>Notes de Satisfaction</h3>
-                <canvas id="satisfactionChart" width="400" height="200"></canvas>
-            </div>
-
-            <div class="chart-container">
-                <h3>Sources de Stress</h3>
-                <canvas id="stressChart" width="400" height="200"></canvas>
-            </div>
-
-            <div style="text-align: center; margin-top: 30px;">
-                <button class="btn" onclick="exportPDF()">📄 Exporter PDF</button>
-            </div>
-        </div>
+  <div class="container">
+    <div class="header">
+      <h1>Analyse des Résultats</h1>
+      <h2>Baromètre Santé 2025 - Cabinet Saint Germain Audit</h2>
+      <p>Importez les fichiers JSON des réponses pour générer une synthèse complète</p>
     </div>
 
-    <script>
-        let responses = [];
-        let charts = {};
+    <div class="upload-section">
+      <div class="upload-zone" id="uploadZone">
+        <div class="upload-icon">📁</div>
+        <div class="upload-text">Cliquez pour sélectionner ou glissez-déposez les fichiers JSON</div>
+        <div class="upload-subtext">Sélectionnez tous les fichiers de réponses (.json) du baromètre santé</div>
+        <input type="file" id="fileInput" class="file-input" multiple accept=".json">
+      </div>
 
-        document.getElementById('fileInput').addEventListener('change', function(e) {
-            handleFiles(e.target.files);
-        });
+      <div id="fileList" class="file-list" style="display: none;">
+        <h3>Fichiers sélectionnés :</h3>
+        <div id="fileListContent"></div>
+      </div>
 
-        function handleFiles(files) {
-            responses = [];
-            const fileList = document.getElementById('fileList');
-            fileList.innerHTML = '';
-            fileList.style.display = 'none';
+      <div id="alerts"></div>
+    </div>
 
-            let fileCount = 0;
-            for (let i = 0; i < files.length; i++) {
-                if (files[i].name.endsWith('.json')) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        try {
-                            const data = JSON.parse(e.target.result);
-                            if (data && data.id) {
-                                responses.push(data);
-                                const fileItem = document.createElement('div');
-                                fileItem.className = 'file-item';
-                                fileItem.innerHTML = '<span>📄 ' + files[i].name + '</span><span>✅</span>';
-                                fileList.appendChild(fileItem);
-                            }
-                        } catch (error) {
-                            showAlert('Erreur fichier ' + files[i].name, 'error');
-                        }
-                        fileCount++;
-                        if (fileCount === files.length) {
-                            if (responses.length > 0) {
-                                fileList.style.display = 'block';
-                                document.getElementById('analyzeBtn').disabled = false;
-                                showAlert(responses.length + ' fichier(s) chargé(s)', 'success');
-                            }
-                        }
-                    };
-                    reader.readAsText(files[i]);
-                }
+    <div class="analysis-section" id="analysisSection">
+      <h2>Synthèse des Résultats</h2>
+      
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-number" id="totalResponses">0</div><div class="stat-label">Réponses collectées</div></div>
+        <div class="stat-card"><div class="stat-number" id="avgSantePhysique">0</div><div class="stat-label">Santé physique moyenne (/10)</div></div>
+        <div class="stat-card"><div class="stat-number" id="avgSantePsycho">0</div><div class="stat-label">Santé psychologique moyenne (/10)</div></div>
+        <div class="stat-card"><div class="stat-number" id="stressLevel">0%</div><div class="stat-label">Collaborateurs stressés</div></div>
+      </div>
+
+      <div class="chart-container" id="satisfactionContainer">
+        <div class="chart-title">Notes Moyennes de Satisfaction (/10)</div>
+        <div id="satisfactionCharts"></div>
+      </div>
+
+      <div class="chart-container"><div class="chart-title">Répartition par Profil Professionnel</div><canvas id="profileChart"></canvas></div>
+      <div class="chart-container"><div class="chart-title">Répartition par Tranche d'Âge</div><canvas id="ageChart"></canvas></div>
+      <div class="chart-container"><div class="chart-title">Évaluation de la Santé (Notes moyennes)</div><canvas id="healthChart"></canvas></div>
+      <div class="chart-container"><div class="chart-title">Qualité de Vie au Travail</div><canvas id="qvtChart"></canvas></div>
+      <div class="chart-container"><div class="chart-title">Sources de Stress Principales</div><canvas id="stressChart"></canvas></div>
+      <div class="chart-container"><div class="chart-title">Répartition du Télétravail</div><canvas id="teletravailChart"></canvas></div>
+
+      <div style="text-align: center; margin-top: 30px;">
+        <button id="exportPdfBtn" class="btn">📄 Générer le rapport PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // === CLASSE ANALYSEUR ===
+    function HealthSurveyAnalyzer() {
+      this.responses = [];
+      this.charts = {};
+      this.calculatedStats = {};
+      this.init();
+    }
+
+    HealthSurveyAnalyzer.prototype.init = function() {
+      this.setupEventListeners();
+    };
+
+    HealthSurveyAnalyzer.prototype.setupEventListeners = function() {
+      var self = this;
+      var uploadZone = document.getElementById('uploadZone');
+      var fileInput = document.getElementById('fileInput');
+      var exportPdfBtn = document.getElementById('exportPdfBtn');
+
+      uploadZone.addEventListener('click', function() { fileInput.click(); });
+      uploadZone.addEventListener('dragover', function(e) { e.preventDefault(); uploadZone.classList.add('dragover'); });
+      uploadZone.addEventListener('dragleave', function() { uploadZone.classList.remove('dragover'); });
+      uploadZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+        self.handleFiles(e.dataTransfer.files);
+      });
+
+      fileInput.addEventListener('change', function(e) {
+        self.handleFiles(e.target.files);
+      });
+
+      exportPdfBtn.addEventListener('click', function() { self.exportToPDF(); });
+    };
+
+    HealthSurveyAnalyzer.prototype.handleFiles = function(files) {
+      var jsonFiles = [];
+      for (var i = 0; i < files.length; i++) {
+        if (files[i].name.endsWith('.json')) jsonFiles.push(files[i]);
+      }
+
+      if (jsonFiles.length === 0) {
+        this.showAlert('Aucun fichier JSON valide sélectionné', 'error');
+        return;
+      }
+
+      document.getElementById('fileInput').value = ''; // reset input
+      this.loadJsonFiles(jsonFiles);
+    };
+
+    HealthSurveyAnalyzer.prototype.loadJsonFiles = function(files) {
+      var self = this;
+      var fileList = document.getElementById('fileList');
+      var fileListContent = document.getElementById('fileListContent');
+
+      fileListContent.innerHTML = '';
+      this.responses = [];
+
+      var promises = [];
+      for (var i = 0; i < files.length; i++) {
+        promises.push(this.readFile(files[i]));
+      }
+
+      Promise.all(promises).then(function(results) {
+        for (var i = 0; i < results.length; i++) {
+          try {
+            var data = JSON.parse(results[i]);
+            if (self.validateResponseData(data)) {
+              self.responses.push(data);
+              self.addFileToList(files[i].name, fileListContent);
+            } else {
+              self.showAlert('Fichier ' + files[i].name + ' : format non valide', 'error');
             }
+          } catch (error) {
+            self.showAlert('Erreur lecture ' + files[i].name + ' : ' + error.message, 'error');
+          }
         }
 
-        function analyzeData() {
-            if (responses.length === 0) return;
+        if (self.responses.length > 0) {
+          fileList.style.display = 'block';
+          self.analyzeData(); // 🔥 Analyse directe après import
+        } else {
+          self.showAlert('Aucune donnée exploitable', 'error');
+        }
+      });
+    };
 
-            try {
-                // Calculs statistiques
-                const total = responses.length;
-                let totalSante = 0;
-                let santeCount = 0;
-                let stressCount = 0;
-                let qvtTotal = 0;
-                let qvtCount = 0;
+    HealthSurveyAnalyzer.prototype.readFile = function(file) {
+      return new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function(e) { resolve(e.target.result); };
+        reader.onerror = function() { reject(new Error('Erreur de lecture du fichier')); };
+        reader.readAsText(file);
+      });
+    };
 
-                responses.forEach(function(r) {
-                    if (r.sante_physique) {
-                        totalSante += parseInt(r.sante_physique);
-                        santeCount++;
-                    }
-                    if (r.sante_psychologique) {
-                        totalSante += parseInt(r.sante_psychologique);
-                        santeCount++;
-                    }
-                    if (r.sources_stress && r.sources_stress.length > 0) {
-                        let hasStress = false;
-                        for (let j = 0; j < r.sources_stress.length; j++) {
-                            if (r.sources_stress[j] !== 'pas_stresse') {
-                                hasStress = true;
-                                break;
-                            }
-                        }
-                        if (hasStress) stressCount++;
-                    }
-                    if (r.qvt) {
-                        const qvtValues = {
-                            'excellente': 10, 'bonne': 8, 'correcte': 6, 'decevante': 4, 'nocive': 2
-                        };
-                        if (qvtValues[r.qvt]) {
-                            qvtTotal += qvtValues[r.qvt];
-                            qvtCount++;
-                        }
-                    }
-                });
+    // === Exemple : recalcul, stats, PDF, etc. ===
+    // (tu gardes ton code existant pour calculateStatistics, calculateSatisfactionScores, createProfileChart, createAgeChart, createHealthChart, createQvtChart, createStressChart, createTeletravailChart, exportToPDF...)
 
-                // Mise à jour des statistiques
-                document.getElementById('totalResponses').textContent = total;
-                document.getElementById('avgHealth').textContent = santeCount > 0 ? (totalSante / santeCount).toFixed(1) : '0';
-                document.getElementById('stressPercent').textContent = Math.round((stressCount / total) * 100) + '%';
-                document.getElementById('qvtScore').textContent = qvtCount > 0 ? (qvtTotal / qvtCount).toFixed(1) : '0';
+    // === NOUVELLE FONCTION : un graphique par question ===
+    HealthSurveyAnalyzer.prototype.createSatisfactionCharts = function() {
+      var container = document.getElementById('satisfactionCharts');
+      container.innerHTML = '';
 
-                createCharts();
-                document.getElementById('analysisSection').style.display = 'block';
-                showAlert('Analyse terminée', 'success');
-            } catch (error) {
-                showAlert('Erreur analyse: ' + error.message, 'error');
+      var scores = this.calculatedStats.satisfactionScores;
+
+      var labels = {
+        'gestion_pression': 'Gestion de la pression',
+        'climat_social': 'Climat social',
+        'qvt': 'Qualité de vie au travail',
+        'qualite_sommeil': 'Qualité du sommeil',
+        'charge_travail': 'Charge de travail raisonnable',
+        'sommeil_suffisant': 'Temps de sommeil suffisant',
+        'alimentation_saine': 'Alimentation saine',
+        'offre_restauration': 'Offre de restauration'
+      };
+
+      for (var key in scores) {
+        if (scores[key] > 0) {
+          var chartDiv = document.createElement('div');
+          chartDiv.className = "chart-container";
+          chartDiv.style.marginBottom = "20px";
+
+          var title = document.createElement('div');
+          title.className = "chart-title";
+          title.textContent = labels[key] || key;
+
+          var canvas = document.createElement('canvas');
+          chartDiv.appendChild(title);
+          chartDiv.appendChild(canvas);
+          container.appendChild(chartDiv);
+
+          var color = scores[key] >= 8 ? '#48bb78' : (scores[key] >= 6 ? '#ed8936' : '#f56565');
+
+          new Chart(canvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+              labels: [labels[key] || key],
+              datasets: [{
+                label: 'Note moyenne (/10)',
+                data: [scores[key]],
+                backgroundColor: [color]
+              }]
+            },
+            options: {
+              responsive: true,
+              scales: {
+                y: { beginAtZero: true, max: 10, ticks: { stepSize: 1 } }
+              },
+              plugins: { legend: { display: false } }
             }
+          });
         }
+      }
+    };
 
-        function createCharts() {
-            createProfileChart();
-            createSatisfactionChart();
-            createStressChart();
-        }
-
-        function createProfileChart() {
-            const ctx = document.getElementById('profileChart').getContext('2d');
-            const profileCounts = {};
-            
-            responses.forEach(function(r) {
-                if (r.profil) {
-                    profileCounts[r.profil] = (profileCounts[r.profil] || 0) + 1;
-                }
-            });
-
-            const labels = [];
-            const data = [];
-            const labelMap = {
-                'auditeur': 'Auditeur',
-                'chef_mission': 'Chef de mission',
-                'directeur_mission': 'Directeur'
-            };
-
-            for (let key in profileCounts) {
-                labels.push(labelMap[key] || key);
-                data.push(profileCounts[key]);
-            }
-
-            if (charts.profile) charts.profile.destroy();
-            charts.profile = new Chart(ctx, {
-                type: 'pie',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: data,
-                        backgroundColor: ['#667eea', '#764ba2', '#48bb78']
-                    }]
-                },
-                options: { responsive: true }
-            });
-        }
-
-        function createSatisfactionChart() {
-            const ctx = document.getElementById('satisfactionChart').getContext('2d');
-            const scores = {};
-            
-            // Calcul des scores de satisfaction
-            const mappings = {
-                'gestion_pression': { 'tres_bien': 10, 'bien': 8, 'moyennement': 6, 'difficilement': 4, 'tres_difficilement': 2 },
-                'qvt': { 'excellente': 10, 'bonne': 8, 'correcte': 6, 'decevante': 4, 'nocive': 2 },
-                'climat_social': { 'tres_bon': 10, 'bon': 8, 'correct': 6, 'difficile': 4, 'tres_difficile': 2 }
-            };
-
-            for (let question in mappings) {
-                const values = [];
-                responses.forEach(function(r) {
-                    if (r[question] && mappings[question][r[question]]) {
-                        values.push(mappings[question][r[question]]);
-                    }
-                });
-                if (values.length > 0) {
-                    scores[question] = values.reduce((a,b) => a+b, 0) / values.length;
-                }
-            }
-
-            const labels = [];
-            const data = [];
-            const labelMap = {
-                'gestion_pression': 'Gestion pression',
-                'qvt': 'Qualité vie travail',
-                'climat_social': 'Climat social'
-            };
-
-            for (let key in scores) {
-                labels.push(labelMap[key] || key);
-                data.push(scores[key]);
-            }
-
-            if (charts.satisfaction) charts.satisfaction.destroy();
-            charts.satisfaction = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Note (/10)',
-                        data: data,
-                        backgroundColor: '#48bb78'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: { beginAtZero: true, max: 10 }
-                    }
-                }
-            });
-        }
-
-        function createStressChart() {
-            const ctx = document.getElementById('stressChart').getContext('2d');
-            const stressCounts = {};
-            
-            responses.forEach(function(r) {
-                if (r.sources_stress && Array.isArray(r.sources_stress)) {
-                    r.sources_stress.forEach(function(source) {
-                        if (source !== 'pas_stresse') {
-                            stressCounts[source] = (stressCounts[source] || 0) + 1;
-                        }
-                    });
-                }
-            });
-
-            const labels = [];
-            const data = [];
-            const labelMap = {
-                'gestion_clients': 'Clients',
-                'tenue_delais': 'Délais',
-                'pression_hierarchique': 'Hiérarchie',
-                'complexite_dossiers': 'Complexité'
-            };
-
-            for (let key in stressCounts) {
-                labels.push(labelMap[key] || key);
-                data.push(stressCounts[key]);
-            }
-
-            if (charts.stress) charts.stress.destroy();
-            charts.stress = new Chart(ctx, {
-                type: 'horizontalBar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Mentions',
-                        data: data,
-                        backgroundColor: '#f56565'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        x: { beginAtZero: true }
-                    }
-                }
-            });
-        }
-
-        function exportPDF() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            
-            doc.setFontSize(20);
-            doc.text('BAROMETRE SANTE 2025', 105, 30, { align: 'center' });
-            
-            doc.setFontSize(14);
-            doc.text('Cabinet Saint Germain Audit', 105, 45, { align: 'center' });
-            
-            doc.setFontSize(12);
-            doc.text('Nombre de repondants: ' + responses.length, 20, 70);
-            doc.text('Date: ' + new Date().toLocaleDateString('fr-FR'), 20, 80);
-            
-            const fileName = 'Barometre_Sante_' + new Date().toISOString().slice(0, 10) + '.pdf';
-            doc.save(fileName);
-            
-            showAlert('PDF généré: ' + fileName, 'success');
-        }
-
-        function clearAll() {
-            responses = [];
-            document.getElementById('fileList').style.display = 'none';
-            document.getElementById('analyzeBtn').disabled = true;
-            document.getElementById('analysisSection').style.display = 'none';
-            document.getElementById('alerts').innerHTML = '';
-            for (let key in charts) {
-                if (charts[key]) charts[key].destroy();
-            }
-            charts = {};
-            showAlert('Données effacées', 'info');
-        }
-
-        function showAlert(message, type) {
-            const alertsContainer = document.getElementById('alerts');
-            const alert = document.createElement('div');
-            alert.className = 'alert alert-' + type;
-            alert.textContent = message;
-            alertsContainer.appendChild(alert);
-            
-            setTimeout(function() {
-                if (alert.parentNode) {
-                    alert.remove();
-                }
-            }, 3000);
-        }
-    </script>
+    // === Initialisation ===
+    document.addEventListener('DOMContentLoaded', function() {
+      new HealthSurveyAnalyzer();
+    });
+  </script>
 </body>
 </html>
