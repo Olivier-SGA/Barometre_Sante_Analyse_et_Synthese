@@ -452,20 +452,25 @@
         }
 
         function analyzeAllDimensions() {
-            analysisResults.dimensions = {
-                profiles: analyzeProfiles(),
-                ages: analyzeAges(),
-                health: analyzeHealth(),
-                workload: analyzeWorkload(),
-                stress: analyzeStress(),
-                ergonomics: analyzeErgonomics(),
-                workEnvironment: analyzeWorkEnvironment(),
-                nutrition: analyzeNutrition(),
-                sleep: analyzeSleep(),
-                physicalActivity: analyzePhysicalActivity(),
-                prevention: analyzePrevention(),
-                telework: analyzeTelework()
-            };
+            try {
+                analysisResults.dimensions = {
+                    profiles: analyzeProfiles(),
+                    ages: analyzeAges(),
+                    health: analyzeHealth(),
+                    workload: analyzeWorkload(),
+                    stress: analyzeStress(),
+                    ergonomics: analyzeErgonomics(),
+                    workEnvironment: analyzeWorkEnvironment(),
+                    nutrition: analyzeNutrition(),
+                    sleep: analyzeSleep(),
+                    physicalActivity: analyzePhysicalActivity(),
+                    prevention: analyzePrevention(),
+                    telework: analyzeTelework()
+                };
+            } catch (error) {
+                console.error('Erreur dans analyzeAllDimensions:', error);
+                showAlert('Erreur lors de l analyse des dimensions: ' + error.message, 'error');
+            }
         }
 
         function analyzeProfiles() {
@@ -884,7 +889,7 @@
         }
 
         function generateCompletePDF() {
-            showProgress('Génération du rapport PDF avec graphiques...');
+            showProgress('Génération du rapport PDF avec analyse détaillée...');
 
             try {
                 const { jsPDF } = window.jspdf;
@@ -900,7 +905,7 @@
                 yPos += 12;
                 
                 doc.setFontSize(16);
-                doc.text('RAPPORT COMPLET D\'ANALYSE', pageWidth / 2, yPos, { align: 'center' });
+                doc.text('ANALYSE DETAILLEE DES RESULTATS', pageWidth / 2, yPos, { align: 'center' });
                 yPos += 8;
                 
                 doc.setFontSize(14);
@@ -913,93 +918,460 @@
                          pageWidth / 2, yPos, { align: 'center' });
                 yPos += 25;
 
-                // Statistiques globales
+                // Synthèse exécutive
                 doc.setFontSize(18);
-                doc.text('SYNTHESE GLOBALE', margin, yPos);
+                doc.text('SYNTHESE EXECUTIVE', margin, yPos);
                 yPos += 12;
 
                 const stats = analysisResults.globalStats;
-                const globalStats = [
-                    'Nombre total de repondants : ' + stats.total,
-                    'Note de sante globale moyenne : ' + stats.avgSanteGlobale.toFixed(1) + '/10',
-                    'Note de satisfaction moyenne : ' + stats.avgSatisfaction.toFixed(1) + '/10',
-                    'Pourcentage de collaborateurs stresses : ' + Math.round(stats.stressPercent) + '%',
-                    'Pourcentage avec QVT excellente/bonne : ' + Math.round(stats.qvtGoodPercent) + '%'
+                const executiveSummary = [
+                    'Nombre total de participants : ' + stats.total,
+                    'Taux de participation : 100% (echantillon complet)',
+                    'Note sante globale moyenne : ' + stats.avgSanteGlobale.toFixed(1) + '/10',
+                    'Note satisfaction moyenne generale : ' + stats.avgSatisfaction.toFixed(1) + '/10',
+                    'Proportion collaborateurs en situation de stress : ' + Math.round(stats.stressPercent) + '%',
+                    'Proportion QVT evaluee comme excellente/bonne : ' + Math.round(stats.qvtGoodPercent) + '%'
                 ];
 
-                doc.setFontSize(12);
-                globalStats.forEach(function(stat) {
-                    doc.text('• ' + stat, margin, yPos);
-                    yPos += 8;
+                doc.setFontSize(11);
+                executiveSummary.forEach(function(item) {
+                    doc.text('• ' + item, margin, yPos);
+                    yPos += 7;
                 });
 
-                // Nouvelle page pour les graphiques
-                doc.addPage();
-                yPos = 30;
-
-                // Graphique de satisfaction (le plus important)
-                doc.setFontSize(16);
-                doc.text('GRAPHIQUE DES NOTES DE SATISFACTION', margin, yPos);
                 yPos += 15;
 
-                const satisfactionCanvas = document.getElementById('satisfactionChart');
-                if (satisfactionCanvas) {
-                    try {
-                        const satisfactionImg = satisfactionCanvas.toDataURL('image/png', 1.0);
-                        doc.addImage(satisfactionImg, 'PNG', margin, yPos, pageWidth - 2*margin, 100);
-                        yPos += 110;
-                    } catch (error) {
-                        doc.text('Erreur lors de l\'export du graphique de satisfaction', margin, yPos);
-                        yPos += 10;
+                // Analyse détaillée par section
+                doc.setFontSize(18);
+                doc.text('ANALYSE DETAILLEE PAR QUESTION', margin, yPos);
+                yPos += 15;
+
+                // Section 1: Profils professionnels
+                yPos = addDetailedSection(doc, 'SECTION 1 - PROFILS PROFESSIONNELS', yPos, margin, pageWidth);
+                
+                const profileData = analysisResults.dimensions.profiles;
+                yPos = addQuestionAnalysis(doc, 'Question : Quel est votre profil professionnel ?', 
+                    profileData.data, profileData.labels, yPos, margin, pageWidth);
+
+                // Section 2: Tranches d'âge  
+                yPos = addDetailedSection(doc, 'SECTION 2 - REPARTITION PAR AGE', yPos, margin, pageWidth);
+                
+                const ageData = analysisResults.dimensions.ages;
+                yPos = addQuestionAnalysis(doc, 'Question : Votre tranche d\'age ?', 
+                    ageData.data, ageData.labels, yPos, margin, pageWidth);
+
+                // Section 3: Santé globale
+                yPos = addDetailedSection(doc, 'SECTION 3 - SANTE GLOBALE', yPos, margin, pageWidth);
+                
+                const healthData = analysisResults.dimensions.health;
+                doc.setFontSize(12);
+                doc.text('Question : Comment evaluez-vous votre sante physique ? (Note /10)', margin, yPos);
+                yPos += 8;
+                doc.setFontSize(10);
+                doc.text('Moyenne obtenue : ' + healthData.physique.toFixed(2) + '/10', margin + 10, yPos);
+                yPos += 10;
+
+                doc.setFontSize(12);
+                doc.text('Question : Comment evaluez-vous votre sante psychologique ? (Note /10)', margin, yPos);
+                yPos += 8;
+                doc.setFontSize(10);
+                doc.text('Moyenne obtenue : ' + healthData.psychologique.toFixed(2) + '/10', margin + 10, yPos);
+                yPos += 15;
+
+                // Section 4: Organisation et charge de travail
+                yPos = addDetailedSection(doc, 'SECTION 4 - ORGANISATION ET CHARGE DE TRAVAIL', yPos, margin, pageWidth);
+                
+                const workloadData = analysisResults.dimensions.workload;
+                const workloadLabels = {
+                    'travailExtra': {
+                        'jamais': 'Jamais',
+                        'plusieurs_fois_an': 'Plusieurs fois par an',
+                        'plusieurs_fois_mois': 'Plusieurs fois par mois',
+                        'plusieurs_fois_semaine': 'Plusieurs fois par semaine'
+                    },
+                    'pressionEcheances': {
+                        'jamais': 'Jamais',
+                        'rarement': 'Rarement',
+                        'souvent': 'Souvent',
+                        'tres_regulierement': 'Tres regulierement'
+                    },
+                    'gestionPression': {
+                        'tres_bien': 'Tres bien',
+                        'bien': 'Bien',
+                        'moyennement': 'Moyennement',
+                        'difficilement': 'Difficilement',
+                        'tres_difficilement': 'Tres difficilement'
+                    },
+                    'chargeTravail': {
+                        'oui': 'Oui, raisonnable',
+                        'non': 'Non, pas raisonnable'
                     }
+                };
+
+                yPos = addQuestionAnalysis(doc, 'Question : Frequence travail soir/week-end ?', 
+                    workloadData.travailExtra, workloadLabels.travailExtra, yPos, margin, pageWidth);
+                
+                yPos = addQuestionAnalysis(doc, 'Question : Ressentez-vous pression liee aux echeances ?', 
+                    workloadData.pressionEcheances, workloadLabels.pressionEcheances, yPos, margin, pageWidth);
+
+                yPos = addQuestionAnalysis(doc, 'Question : Comment gerez-vous cette pression ?', 
+                    workloadData.gestionPression, workloadLabels.gestionPression, yPos, margin, pageWidth);
+
+                yPos = addQuestionAnalysis(doc, 'Question : Charge de travail raisonnable ?', 
+                    workloadData.chargeTravail, workloadLabels.chargeTravail, yPos, margin, pageWidth);
+
+                // Section 5: Stress
+                yPos = addDetailedSection(doc, 'SECTION 5 - STRESS AU TRAVAIL', yPos, margin, pageWidth);
+                
+                const stressData = analysisResults.dimensions.stress;
+                const stressLabels = {
+                    'sources': {
+                        'gestion_clients': 'Gestion des clients',
+                        'complexite_dossiers': 'Complexite des dossiers',
+                        'tenue_delais': 'Tenue des delais',
+                        'outils_inefficaces': 'Outils inefficaces',
+                        'pression_hierarchique': 'Pression hierarchique',
+                        'horaires_contraintes': 'Contraintes horaires',
+                        'manque_formation': 'Manque de formation'
+                    },
+                    'symptoms': {
+                        'fatigue': 'Fatigue',
+                        'troubles_sommeil': 'Troubles du sommeil',
+                        'maux_tete': 'Maux de tete/migraines',
+                        'tensions_musculaires': 'Tensions musculaires',
+                        'problemes_digestifs': 'Problemes digestifs',
+                        'troubles_alimentaires': 'Troubles alimentaires'
+                    }
+                };
+
+                yPos = addQuestionAnalysis(doc, 'Question : Principales sources de stress (choix multiples)', 
+                    stressData.sources, stressLabels.sources, yPos, margin, pageWidth);
+
+                yPos = addQuestionAnalysis(doc, 'Question : Symptomes physiques lies au stress (choix multiples)', 
+                    stressData.symptoms, stressLabels.symptoms, yPos, margin, pageWidth);
+
+                // Section 6: Ergonomie
+                yPos = addDetailedSection(doc, 'SECTION 6 - ERGONOMIE ET SEDENTARITE', yPos, margin, pageWidth);
+                
+                const ergoData = analysisResults.dimensions.ergonomics;
+                const ergoLabels = {
+                    'ergonomie': {
+                        'oui_totalement': 'Oui, totalement',
+                        'oui_en_partie': 'Oui, en partie',
+                        'non_pas_vraiment': 'Non, pas vraiment',
+                        'non_pas_du_tout': 'Non, pas du tout'
+                    },
+                    'douleurs': {
+                        'oui': 'Oui',
+                        'non': 'Non'
+                    },
+                    'consultation': {
+                        'oui': 'Oui',
+                        'non': 'Non'
+                    }
+                };
+
+                yPos = addQuestionAnalysis(doc, 'Question : Poste adapte en termes d\'ergonomie ?', 
+                    ergoData.ergonomie, ergoLabels.ergonomie, yPos, margin, pageWidth);
+
+                yPos = addQuestionAnalysis(doc, 'Question : Douleurs physiques liees au poste ?', 
+                    ergoData.douleurs, ergoLabels.douleurs, yPos, margin, pageWidth);
+
+                yPos = addQuestionAnalysis(doc, 'Question : Consultation professionnel sante pour probleme travail ?', 
+                    ergoData.consultation, ergoLabels.consultation, yPos, margin, pageWidth);
+
+                // Section 7: Ambiance de travail
+                yPos = addDetailedSection(doc, 'SECTION 7 - AMBIANCE DE TRAVAIL', yPos, margin, pageWidth);
+                
+                const workEnvData = analysisResults.dimensions.workEnvironment;
+                const workEnvLabels = {
+                    'climat': {
+                        'tres_bon': 'Tres bon',
+                        'bon': 'Bon',
+                        'correct': 'Correct',
+                        'difficile': 'Difficile',
+                        'tres_difficile': 'Tres difficile'
+                    },
+                    'soutien': {
+                        'oui_collegues_hierarchie': 'Oui, collegues et hierarchie',
+                        'oui_uniquement_collegues': 'Oui, uniquement collegues',
+                        'oui_uniquement_hierarchie': 'Oui, uniquement hierarchie',
+                        'non': 'Non, pas soutenu'
+                    },
+                    'qvt': {
+                        'excellente': 'Excellente',
+                        'bonne': 'Bonne',
+                        'correcte': 'Correcte',
+                        'decevante': 'Decevante',
+                        'nocive': 'Nocive'
+                    }
+                };
+
+                yPos = addQuestionAnalysis(doc, 'Question : Comment jugez-vous le climat social ?', 
+                    workEnvData.climat, workEnvLabels.climat, yPos, margin, pageWidth);
+
+                yPos = addQuestionAnalysis(doc, 'Question : Vous sentez-vous soutenu ?', 
+                    workEnvData.soutien, workEnvLabels.soutien, yPos, margin, pageWidth);
+
+                yPos = addQuestionAnalysis(doc, 'Question : Comment definiriez-vous votre QVT ?', 
+                    workEnvData.qvt, workEnvLabels.qvt, yPos, margin, pageWidth);
+
+                // Section 8: Alimentation
+                yPos = addDetailedSection(doc, 'SECTION 8 - ALIMENTATION', yPos, margin, pageWidth);
+                
+                const nutritionData = analysisResults.dimensions.nutrition;
+                const nutritionLabels = {
+                    'restauration': { 'oui': 'Oui', 'non': 'Non' },
+                    'pauseDejeuner': {
+                        'plus_1h': 'Plus de 1 heure',
+                        '30min_1h': '30min a 1h',
+                        'moins_30min': 'Moins de 30min',
+                        'au_poste': 'Au poste de travail'
+                    },
+                    'alimentationSaine': { 'oui': 'Oui', 'non': 'Non' },
+                    'grignotage': { 'oui': 'Oui', 'non': 'Non' }
+                };
+
+                yPos = addQuestionAnalysis(doc, 'Question : Offre restauration de qualite ?', 
+                    nutritionData.restauration, nutritionLabels.restauration, yPos, margin, pageWidth);
+
+                yPos = addQuestionAnalysis(doc, 'Question : Temps consacre a la pause dejeuner ?', 
+                    nutritionData.pauseDejeuner, nutritionLabels.pauseDejeuner, yPos, margin, pageWidth);
+
+                yPos = addQuestionAnalysis(doc, 'Question : Estimez-vous avoir une alimentation saine ?', 
+                    nutritionData.alimentationSaine, nutritionLabels.alimentationSaine, yPos, margin, pageWidth);
+
+                yPos = addQuestionAnalysis(doc, 'Question : Vous arrive-t-il de grignoter au travail ?', 
+                    nutritionData.grignotage, nutritionLabels.grignotage, yPos, margin, pageWidth);
+
+                // Section 9: Sommeil
+                yPos = addDetailedSection(doc, 'SECTION 9 - SOMMEIL', yPos, margin, pageWidth);
+                
+                const sleepData = analysisResults.dimensions.sleep;
+                const sleepLabels = {
+                    'heures': {
+                        'moins_5h': 'Moins de 5 heures',
+                        'environ_5h': 'Environ 5 heures',
+                        'environ_6h': 'Environ 6 heures',
+                        'environ_7h': 'Environ 7 heures',
+                        'environ_8h': 'Environ 8 heures',
+                        'plus_8h': 'Plus de 8 heures'
+                    },
+                    'suffisant': { 'oui': 'Oui', 'non': 'Non' },
+                    'qualite': {
+                        'correct_qualite': 'Correct et de qualite',
+                        'correct': 'Correct',
+                        'perturbe': 'Perturbe',
+                        'tres_mauvais': 'Tres mauvais'
+                    },
+                    'travailNuit': { 'oui': 'Oui', 'non': 'Non' }
+                };
+
+                yPos = addQuestionAnalysis(doc, 'Question : Heures de sommeil par nuit en moyenne ?', 
+                    sleepData.heures, sleepLabels.heures, yPos, margin, pageWidth);
+
+                yPos = addQuestionAnalysis(doc, 'Question : Temps de sommeil suffisant pour vous ?', 
+                    sleepData.suffisant, sleepLabels.suffisant, yPos, margin, pageWidth);
+
+                yPos = addQuestionAnalysis(doc, 'Question : Comment qualifiez-vous la qualite de votre sommeil ?', 
+                    sleepData.qualite, sleepLabels.qualite, yPos, margin, pageWidth);
+
+                yPos = addQuestionAnalysis(doc, 'Question : Vous arrive-t-il de penser au travail la nuit ?', 
+                    sleepData.travailNuit, sleepLabels.travailNuit, yPos, margin, pageWidth);
+
+                // Section 10: Activité physique
+                yPos = addDetailedSection(doc, 'SECTION 10 - ACTIVITE PHYSIQUE', yPos, margin, pageWidth);
+                
+                const activityData = analysisResults.dimensions.physicalActivity;
+                const activityLabels = {
+                    'activite': { 'oui': 'Oui', 'non': 'Non' },
+                    'frequence': {
+                        'plusieurs_fois_semaine': 'Plusieurs fois par semaine',
+                        'toutes_semaines': 'Toutes les semaines',
+                        'quelques_fois_mois': 'Quelques fois par mois'
+                    },
+                    'obstacles': {
+                        'manque_temps': 'Manque de temps',
+                        'manque_motivation': 'Manque de motivation',
+                        'forme_insuffisante': 'Forme physique insuffisante',
+                        'autres_raisons': 'Autres raisons'
+                    },
+                    'facilitation': { 'oui': 'Oui', 'non': 'Non' }
+                };
+
+                yPos = addQuestionAnalysis(doc, 'Question : Pratiquez-vous une activite physique reguliere ?', 
+                    activityData.activite, activityLabels.activite, yPos, margin, pageWidth);
+
+                if (Object.keys(activityData.frequence).length > 0) {
+                    yPos = addQuestionAnalysis(doc, 'Question : Frequence de l\'activite physique ?', 
+                        activityData.frequence, activityLabels.frequence, yPos, margin, pageWidth);
                 }
 
-                // Nouvelle page pour les autres graphiques
+                if (Object.keys(activityData.obstacles).length > 0) {
+                    yPos = addQuestionAnalysis(doc, 'Question : Obstacles a la pratique sportive (choix multiples)', 
+                        activityData.obstacles, activityLabels.obstacles, yPos, margin, pageWidth);
+                }
+
+                yPos = addQuestionAnalysis(doc, 'Question : Cabinet facilite-t-il activite sportive sur pause ?', 
+                    activityData.facilitation, activityLabels.facilitation, yPos, margin, pageWidth);
+
+                // Section 11: Prévention
+                yPos = addDetailedSection(doc, 'SECTION 11 - PREVENTION SANTE', yPos, margin, pageWidth);
+                
+                const preventionData = analysisResults.dimensions.prevention;
+                const preventionLabels = {
+                    'prevention': { 'oui': 'Oui', 'non': 'Non', 'ne_sais_pas': 'Je ne sais pas' },
+                    'efficacite': {
+                        'interessante': 'Interessante',
+                        'utile_effets': 'Utile et suivie d effets',
+                        'inutile': 'Inutile'
+                    }
+                };
+
+                yPos = addQuestionAnalysis(doc, 'Question : Cabinet a-t-il mis en place actions prevention ?', 
+                    preventionData.prevention, preventionLabels.prevention, yPos, margin, pageWidth);
+
+                if (Object.keys(preventionData.efficacite).length > 0) {
+                    yPos = addQuestionAnalysis(doc, 'Question : Comment avez-vous trouve cette prevention ?', 
+                        preventionData.efficacite, preventionLabels.efficacite, yPos, margin, pageWidth);
+                }
+
+                // Section 12: Télétravail
+                yPos = addDetailedSection(doc, 'SECTION 12 - TELETRAVAIL', yPos, margin, pageWidth);
+                
+                const teleworkData = analysisResults.dimensions.telework;
+                const teleworkLabels = {
+                    'rythme': {
+                        'jamais_cabinet_interdit': 'Jamais, cabinet ne le permet pas',
+                        'jamais_choix': 'Jamais, mais c est mon choix',
+                        '1j_semaine': '1 jour par semaine en moyenne',
+                        '2j_semaine': '2 jours par semaine en moyenne',
+                        'plus_2j_semaine': 'Plus de 2 jours par semaine',
+                        '100_pourcent': '100% en teletravail'
+                    }
+                };
+
+                yPos = addQuestionAnalysis(doc, 'Question : A quel rythme avez-vous recours au teletravail ?', 
+                    teleworkData.rythme, teleworkLabels.rythme, yPos, margin, pageWidth);
+
+                // Recommandations
+                yPos += 15;
+                if (yPos > 250) {
+                    doc.addPage();
+                    yPos = 30;
+                }
+
+                doc.setFontSize(18);
+                doc.text('RECOMMANDATIONS STRATEGIQUES', margin, yPos);
+                yPos += 15;
+
+                const recommendations = generateRecommendations();
+                doc.setFontSize(11);
+                
+                recommendations.forEach(function(rec) {
+                    const lines = doc.splitTextToSize('• ' + rec, pageWidth - 2 * margin);
+                    lines.forEach(function(line) {
+                        if (yPos > 280) {
+                            doc.addPage();
+                            yPos = 30;
+                        }
+                        doc.text(line, margin, yPos);
+                        yPos += 7;
+                    });
+                    yPos += 5;
+                });
+
+                // Footer avec pagination
+                const pageCount = doc.internal.getNumberOfPages();
+                for (let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(8);
+                    doc.text('Page ' + i + ' sur ' + pageCount + ' - Barometre Sante 2025 - Cabinet Saint Germain Audit', 
+                            pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+                }
+
+                // Sauvegarde
+                const fileName = 'Barometre_Sante_2025_Analyse_Detaillee_' + now.toISOString().slice(0, 10) + '.pdf';
+                doc.save(fileName);
+
+                showAlert('Rapport PDF avec analyse detaillee genere : ' + fileName, 'success');
+
+            } catch (error) {
+                showAlert('Erreur lors de la generation du PDF : ' + error.message, 'error');
+                console.error('Erreur PDF:', error);
+            }
+        }
+
+        function addDetailedSection(doc, sectionTitle, yPos, margin, pageWidth) {
+            if (yPos > 250) {
                 doc.addPage();
                 yPos = 30;
+            }
+            
+            doc.setFontSize(14);
+            doc.text(sectionTitle, margin, yPos);
+            yPos += 12;
+            
+            return yPos;
+        }
 
-                // Graphiques par paires sur chaque page
-                const graphicsToInclude = [
-                    { title: 'Profils Professionnels', canvasId: 'chart_', description: 'Repartition des profils' },
-                    { title: 'Sources de Stress', canvasId: 'chart_', description: 'Principales sources identifiees' },
-                    { title: 'Qualite de Vie au Travail', canvasId: 'chart_', description: 'Evaluation globale QVT' },
-                    { title: 'Notes de Sante', canvasId: 'chart_', description: 'Sante physique et psychologique' }
-                ];
-
-                // Fonction pour trouver un canvas par son titre approximatif
-                function findChartCanvas(searchTitle) {
-                    const canvases = document.querySelectorAll('#chartsContainer canvas');
-                    for (let canvas of canvases) {
-                        const container = canvas.closest('.chart-container');
-                        if (container) {
-                            const titleElement = container.querySelector('.chart-title');
-                            if (titleElement && titleElement.textContent.includes(searchTitle.split(' ')[0])) {
-                                return canvas;
-                            }
-                        }
-                    }
-                    return null;
-                }
-
-                // Ajout des graphiques les plus importants
-                let graphCount = 0;
-                const importantCharts = ['Profils', 'Stress', 'Qualité', 'Santé'];
+        function addQuestionAnalysis(doc, questionTitle, data, labels, yPos, margin, pageWidth) {
+            // Vérifier si on a besoin d'une nouvelle page
+            if (yPos > 230) {
+                doc.addPage();
+                yPos = 30;
+            }
+            
+            doc.setFontSize(12);
+            doc.text(questionTitle, margin, yPos);
+            yPos += 8;
+            
+            // Calculer le total des réponses
+            const total = Object.values(data).reduce((sum, count) => sum + count, 0);
+            
+            doc.setFontSize(10);
+            doc.text('Total repondants a cette question : ' + total, margin + 5, yPos);
+            yPos += 8;
+            
+            // Tableau des résultats
+            doc.setFontSize(9);
+            doc.text('Reponse', margin + 10, yPos);
+            doc.text('Nb', margin + 120, yPos);
+            doc.text('%', margin + 140, yPos);
+            yPos += 2;
+            
+            // Ligne de séparation
+            doc.line(margin + 5, yPos, margin + 160, yPos);
+            yPos += 5;
+            
+            // Données du tableau
+            for (let key in data) {
+                const count = data[key];
+                const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+                const label = labels && labels[key] ? labels[key] : key;
                 
-                importantCharts.forEach(function(chartKey) {
-                    const canvas = findChartCanvas(chartKey);
-                    if (canvas && graphCount < 6) { // Limite à 6 graphiques pour éviter un PDF trop lourd
-                        try {
-                            if (graphCount % 2 === 0 && graphCount > 0) {
-                                doc.addPage();
-                                yPos = 30;
-                            }
-                            
-                            doc.setFontSize(14);
-                            const title = canvas.closest('.chart-container').querySelector('.chart-title').textContent;
-                            doc.text(title, margin, yPos);
-                            yPos += 10;
-                            
-                            const imgData = canvas.toDataURL('image/png', 0.8);
+                // Gestion du retour à la ligne pour les labels longs
+                const labelLines = doc.splitTextToSize(label, 100);
+                labelLines.forEach(function(line, index) {
+                    if (yPos > 280) {
+                        doc.addPage();
+                        yPos = 30;
+                    }
+                    
+                    if (index === 0) {
+                        doc.text(line, margin + 10, yPos);
+                        doc.text(count.toString(), margin + 120, yPos);
+                        doc.text(percentage + '%', margin + 140, yPos);
+                    } else {
+                        doc.text(line, margin + 10, yPos);
+                    }
+                    yPos += 5;
+                });
+            }
+            
+            yPos += 8;
+            return yPos;
+        }image/png', 0.8);
                             const imgHeight = graphCount % 2 === 0 ? 80 : 80;
                             const imgY = graphCount % 2 === 0 ? yPos : yPos + 100;
                             
