@@ -210,21 +210,33 @@
         let charts = {};
         let analysisResults = {};
 
-        // Configuration des événements
-        document.getElementById('fileInput').addEventListener('change', function(e) {
-            handleFiles(e.target.files);
-        });
+        // Initialisation après chargement du DOM
+        document.addEventListener('DOMContentLoaded', function() {
+            // Configuration des événements pour l'input file
+            const fileInput = document.getElementById('fileInput');
+            if (fileInput) {
+                fileInput.addEventListener('change', function(e) {
+                    handleFiles(e.target.files);
+                });
+            }
 
-        // Drag & Drop
-        const uploadZone = document.getElementById('uploadZone');
-        uploadZone.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            uploadZone.style.borderColor = '#764ba2';
-        });
-        uploadZone.addEventListener('drop', function(e) {
-            e.preventDefault();
-            uploadZone.style.borderColor = '#667eea';
-            handleFiles(e.dataTransfer.files);
+            // Drag & Drop sur la zone d'upload
+            const uploadZone = document.querySelector('.upload-zone');
+            if (uploadZone) {
+                uploadZone.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    uploadZone.style.borderColor = '#764ba2';
+                });
+                uploadZone.addEventListener('dragleave', function(e) {
+                    e.preventDefault();
+                    uploadZone.style.borderColor = '#667eea';
+                });
+                uploadZone.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    uploadZone.style.borderColor = '#667eea';
+                    handleFiles(e.dataTransfer.files);
+                });
+            }
         });
 
         // Gestion des fichiers
@@ -872,7 +884,7 @@
         }
 
         function generateCompletePDF() {
-            showProgress('Génération du rapport PDF en cours...');
+            showProgress('Génération du rapport PDF avec graphiques...');
 
             try {
                 const { jsPDF } = window.jspdf;
@@ -921,11 +933,98 @@
                     yPos += 8;
                 });
 
+                // Nouvelle page pour les graphiques
+                doc.addPage();
+                yPos = 30;
+
+                // Graphique de satisfaction (le plus important)
+                doc.setFontSize(16);
+                doc.text('GRAPHIQUE DES NOTES DE SATISFACTION', margin, yPos);
                 yPos += 15;
+
+                const satisfactionCanvas = document.getElementById('satisfactionChart');
+                if (satisfactionCanvas) {
+                    try {
+                        const satisfactionImg = satisfactionCanvas.toDataURL('image/png', 1.0);
+                        doc.addImage(satisfactionImg, 'PNG', margin, yPos, pageWidth - 2*margin, 100);
+                        yPos += 110;
+                    } catch (error) {
+                        doc.text('Erreur lors de l\'export du graphique de satisfaction', margin, yPos);
+                        yPos += 10;
+                    }
+                }
+
+                // Nouvelle page pour les autres graphiques
+                doc.addPage();
+                yPos = 30;
+
+                // Graphiques par paires sur chaque page
+                const graphicsToInclude = [
+                    { title: 'Profils Professionnels', canvasId: 'chart_', description: 'Repartition des profils' },
+                    { title: 'Sources de Stress', canvasId: 'chart_', description: 'Principales sources identifiees' },
+                    { title: 'Qualite de Vie au Travail', canvasId: 'chart_', description: 'Evaluation globale QVT' },
+                    { title: 'Notes de Sante', canvasId: 'chart_', description: 'Sante physique et psychologique' }
+                ];
+
+                // Fonction pour trouver un canvas par son titre approximatif
+                function findChartCanvas(searchTitle) {
+                    const canvases = document.querySelectorAll('#chartsContainer canvas');
+                    for (let canvas of canvases) {
+                        const container = canvas.closest('.chart-container');
+                        if (container) {
+                            const titleElement = container.querySelector('.chart-title');
+                            if (titleElement && titleElement.textContent.includes(searchTitle.split(' ')[0])) {
+                                return canvas;
+                            }
+                        }
+                    }
+                    return null;
+                }
+
+                // Ajout des graphiques les plus importants
+                let graphCount = 0;
+                const importantCharts = ['Profils', 'Stress', 'Qualité', 'Santé'];
+                
+                importantCharts.forEach(function(chartKey) {
+                    const canvas = findChartCanvas(chartKey);
+                    if (canvas && graphCount < 6) { // Limite à 6 graphiques pour éviter un PDF trop lourd
+                        try {
+                            if (graphCount % 2 === 0 && graphCount > 0) {
+                                doc.addPage();
+                                yPos = 30;
+                            }
+                            
+                            doc.setFontSize(14);
+                            const title = canvas.closest('.chart-container').querySelector('.chart-title').textContent;
+                            doc.text(title, margin, yPos);
+                            yPos += 10;
+                            
+                            const imgData = canvas.toDataURL('image/png', 0.8);
+                            const imgHeight = graphCount % 2 === 0 ? 80 : 80;
+                            const imgY = graphCount % 2 === 0 ? yPos : yPos + 100;
+                            
+                            doc.addImage(imgData, 'PNG', margin, imgY, pageWidth - 2*margin, imgHeight);
+                            
+                            if (graphCount % 2 === 0) {
+                                yPos += 90;
+                            } else {
+                                yPos += 180;
+                            }
+                            
+                            graphCount++;
+                        } catch (error) {
+                            console.warn('Erreur export graphique:', error);
+                        }
+                    }
+                });
+
+                // Nouvelle page pour les détails textuels
+                doc.addPage();
+                yPos = 30;
 
                 // Notes de satisfaction détaillées
                 doc.setFontSize(16);
-                doc.text('NOTES DE SATISFACTION PAR DIMENSION', margin, yPos);
+                doc.text('NOTES DE SATISFACTION DETAILLEES', margin, yPos);
                 yPos += 10;
 
                 const scores = calculateAllSatisfactionScores();
@@ -1045,10 +1144,10 @@
                 }
 
                 // Sauvegarde
-                const fileName = 'Barometre_Sante_2025_Rapport_Complet_' + now.toISOString().slice(0, 10) + '.pdf';
+                const fileName = 'Barometre_Sante_2025_Rapport_Complet_Graphiques_' + now.toISOString().slice(0, 10) + '.pdf';
                 doc.save(fileName);
 
-                showAlert('Rapport PDF complet genere avec succes : ' + fileName, 'success');
+                showAlert('Rapport PDF avec graphiques genere avec succes : ' + fileName, 'success');
 
             } catch (error) {
                 showAlert('Erreur lors de la generation du PDF : ' + error.message, 'error');
