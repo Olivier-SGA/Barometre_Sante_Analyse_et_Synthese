@@ -1,4 +1,1079 @@
-<!DOCTYPE html>
+if (!file.name.toLowerCase().endsWith('.json')) {
+                    addFileStatus(file.name, 'Format non supporte (.json requis)', false);
+                    processed++;
+                    updateProgress(processed, total);
+                    checkComplete();
+                    return;
+                }
+
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const rawData = e.target.result;
+                        if (!rawData || rawData.trim() === '') {
+                            throw new Error('Fichier vide');
+                        }
+                        
+                        const data = JSON.parse(rawData);
+                        console.log(`JSON parse pour ${file.name}`);
+                        
+                        if (validateAndCleanData(data)) {
+                            responses.push(data);
+                            valid++;
+                            addFileStatus(file.name, `Charge avec succes (ID: ${data.id})`, true);
+                        } else {
+                            addFileStatus(file.name, 'Structure de donnees invalide', false);
+                        }
+                    } catch (error) {
+                        console.error(`Erreur pour ${file.name}:`, error);
+                        addFileStatus(file.name, `Erreur: ${error.message}`, false);
+                    }
+                    
+                    processed++;
+                    updateProgress(processed, total);
+                    checkComplete();
+                };
+                
+                reader.onerror = function() {
+                    addFileStatus(file.name, 'Erreur de lecture du fichier', false);
+                    processed++;
+                    updateProgress(processed, total);
+                    checkComplete();
+                };
+                
+                reader.readAsText(file, 'UTF-8');
+            });
+
+            function updateProgress(current, total) {
+                const percent = Math.round((current / total) * 100);
+                const progressFill = document.getElementById('progressFill');
+                const progressText = document.getElementById('progressText');
+                
+                if (progressFill && progressText) {
+                    progressFill.style.width = percent + '%';
+                    progressText.textContent = `Traitement ${current}/${total} fichiers (${percent}%)`;
+                }
+            }
+
+            function checkComplete() {
+                if (processed === total) {
+                    hideProgressSection();
+                    console.log(`Traitement termine. Fichiers valides: ${valid}/${total}`);
+                    
+                    if (valid > 0) {
+                        document.getElementById('analyzeBtn').disabled = false;
+                        showAlert(`${valid} fichier(s) charge(s) avec succes sur ${total}`, 'success');
+                        
+                        // Pre-validation des donnees
+                        const validationResult = validateDataIntegrity();
+                        if (validationResult.warnings.length > 0) {
+                            showAlert(`${validationResult.warnings.join(', ')}`, 'info');
+                        }
+                    } else {
+                        showAlert('Aucun fichier valide trouve. Verifiez le format JSON et la structure des donnees.', 'error');
+                    }
+                }
+            }
+        }
+
+        // Validation et nettoyage robuste des donnees
+        function validateAndCleanData(data) {
+            try {
+                if (!data || typeof data !== 'object') {
+                    return false;
+                }
+
+                // ID obligatoire
+                if (!data.id && data.id !== 0) {
+                    return false;
+                }
+
+                // Champs essentiels du barometre
+                const essentialFields = questionConfig.map(q => q.key);
+
+                let hasEssentialData = false;
+                
+                essentialFields.forEach(field => {
+                    if (data[field] !== undefined && data[field] !== null && data[field] !== '') {
+                        hasEssentialData = true;
+                        
+                        // Nettoyage des donnees numeriques
+                        if (['sante_physique', 'sante_psychologique', 'age'].includes(field)) {
+                            const num = parseFloat(data[field]);
+                            if (!isNaN(num) && num >= 0) {
+                                data[field] = num;
+                            }
+                        }
+                        
+                        // Nettoyage des chaines
+                        if (typeof data[field] === 'string') {
+                            data[field] = data[field].trim().toLowerCase();
+                        }
+                    }
+                });
+
+                return hasEssentialData;
+            } catch (error) {
+                console.error('Erreur validation:', error);
+                return false;
+            }
+        }
+
+        // Validation de l'integrite globale des donnees
+        function validateDataIntegrity() {
+            const warnings = [];
+            let totalFields = 0;
+            let missingFields = 0;
+            
+            const expectedFields = questionConfig.map(q => q.key);
+            
+            responses.forEach(response => {
+                expectedFields.forEach(field => {
+                    totalFields++;
+                    if (!response[field] || response[field] === '' || response[field] === null) {
+                        missingFields++;
+                    }
+                });
+            });
+            
+            const missingPercent = totalFields > 0 ? (missingFields / totalFields) * 100 : 0;
+            if (missingPercent > 20) {
+                warnings.push(`${Math.round(missingPercent)}% de donnees manquantes detectees`);
+            }
+            
+            return { warnings };
+        }
+
+        // Affichage des statuts de fichiers
+        function addFileStatus(fileName, status, isValid) {
+            const fileList = document.getElementById('fileList');
+            if (!fileList) return;
+            
+            const item = document.createElement('div');
+            item.className = 'file-item';
+            
+            const fileInfo = document.createElement('span');
+            fileInfo.style.fontWeight = '600';
+            fileInfo.textContent = `${fileName}`;
+            
+            const statusInfo = document.createElement('span');
+            statusInfo.style.color = isValid ? '#38a169' : '#e53e3e';
+            statusInfo.style.fontWeight = '600';
+            statusInfo.textContent = status;
+            
+            item.appendChild(fileInfo);
+            item.appendChild(statusInfo);
+            fileList.appendChild(item);
+        }
+
+        // Gestion de la barre de progression
+        function showProgressSection() {
+            const section = document.getElementById('progressSection');
+            if (section) section.style.display = 'block';
+        }
+
+        function hideProgressSection() {
+            setTimeout(() => {
+                const section = document.getElementById('progressSection');
+                if (section) section.style.display = 'none';
+            }, 1000);
+        }
+
+        // Analyse complete des donnees selon l'ordre des questions
+        function analyzeData() {
+            console.log('Debut analyse avec', responses.length, 'reponses');
+            
+            if (responses.length === 0) {
+                showAlert('Aucune donnee a analyser', 'error');
+                return;
+            }
+
+            // Animation du bouton
+            const btn = document.getElementById('analyzeBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="loading"></span> Analyse en cours...';
+            btn.disabled = true;
+
+            try {
+                setTimeout(() => {
+                    try {
+                        calculateComprehensiveStats();
+                        createOrderedCharts();
+                        
+                        const analysisSection = document.getElementById('analysisSection');
+                        if (analysisSection) {
+                            analysisSection.style.display = 'block';
+                            analysisSection.scrollIntoView({ behavior: 'smooth' });
+                        }
+                        
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        
+                        showAlert('Analyse terminee avec succes !', 'success');
+                    } catch (error) {
+                        throw error;
+                    }
+                }, 800);
+                
+            } catch (error) {
+                console.error('Erreur analyse:', error);
+                showAlert(`Erreur lors de l'analyse: ${error.message}`, 'error');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // Calculs statistiques complets et precis
+        function calculateComprehensiveStats() {
+            const total = responses.length;
+            
+            // Sante physique et psychologique separees
+            let physSum = 0, physCount = 0;
+            let psychoSum = 0, psychoCount = 0;
+            
+            responses.forEach(r => {
+                if (r.sante_physique !== undefined && !isNaN(parseFloat(r.sante_physique))) {
+                    physSum += parseFloat(r.sante_physique);
+                    physCount++;
+                }
+                if (r.sante_psychologique !== undefined && !isNaN(parseFloat(r.sante_psychologique))) {
+                    psychoSum += parseFloat(r.sante_psychologique);
+                    psychoCount++;
+                }
+            });
+
+            const avgHealthPhys = physCount > 0 ? physSum / physCount : 0;
+            const avgHealthPsych = psychoCount > 0 ? psychoSum / psychoCount : 0;
+
+            // Calcul precis du stress
+            let stressCount = 0;
+            responses.forEach(r => {
+                let hasStress = false;
+                
+                if (r.sources_stress) {
+                    if (Array.isArray(r.sources_stress)) {
+                        hasStress = r.sources_stress.some(s => 
+                            s && s !== 'pas_stresse' && s !== 'aucun' && s.trim() !== ''
+                        );
+                    } else if (typeof r.sources_stress === 'string') {
+                        const stress = r.sources_stress.trim().toLowerCase();
+                        hasStress = stress !== 'pas_stresse' && stress !== 'aucun' && stress !== '';
+                    }
+                }
+                
+                if (hasStress) stressCount++;
+            });
+
+            // QVT satisfaisante (bonne + excellente)
+            let qvtGoodCount = 0;
+            responses.forEach(r => {
+                if (r.qvt === 'excellente' || r.qvt === 'bonne') {
+                    qvtGoodCount++;
+                }
+            });
+
+            // Risque de burnout (algorithme multicriteres)
+            let burnoutRiskCount = 0;
+            responses.forEach(r => {
+                const lowHealthPhys = r.sante_physique && parseFloat(r.sante_physique) < 5;
+                const lowHealthPsych = r.sante_psychologique && parseFloat(r.sante_psychologique) < 5;
+                
+                let highStress = false;
+                if (r.sources_stress && Array.isArray(r.sources_stress)) {
+                    highStress = r.sources_stress.filter(s => 
+                        s && s !== 'pas_stresse' && s !== 'aucun'
+                    ).length > 2;
+                } else if (r.sources_stress && typeof r.sources_stress === 'string') {
+                    highStress = r.sources_stress !== 'pas_stresse' && r.sources_stress !== 'aucun';
+                }
+                
+                const poorQVT = ['decevante', 'mauvaise', 'nocive'].includes(r.qvt);
+                
+                // Criteres de risque combines
+                const riskFactors = [lowHealthPhys, lowHealthPsych, highStress, poorQVT].filter(Boolean).length;
+                if (riskFactors >= 2) {
+                    burnoutRiskCount++;
+                }
+            });
+
+            // Mise a jour securisee de l'interface
+            const updateElement = (id, value) => {
+                const element = document.getElementById(id);
+                if (element) element.textContent = value;
+            };
+
+            updateElement('totalResponses', total);
+            updateElement('avgHealthPhys', avgHealthPhys.toFixed(1));
+            updateElement('avgHealthPsych', avgHealthPsych.toFixed(1));
+            updateElement('stressCount', Math.round((stressCount / total) * 100) + '%');
+            updateElement('qvtGood', Math.round((qvtGoodCount / total) * 100) + '%');
+            updateElement('burnoutRisk', Math.round((burnoutRiskCount / total) * 100) + '%');
+
+            // Collecte des donnees detaillees pour chaque question dans l'ordre
+            analysisData = {
+                total: total,
+                avgHealthPhys: avgHealthPhys,
+                avgHealthPsych: avgHealthPsych,
+                stressPercent: (stressCount / total) * 100,
+                qvtGoodPercent: (qvtGoodCount / total) * 100,
+                burnoutPercent: (burnoutRiskCount / total) * 100,
+                detailedAnswers: collectDetailedAnswers()
+            };
+
+            console.log('Donnees analysees:', analysisData);
+        }
+
+        // Collecte des reponses detaillees pour chaque question
+        function collectDetailedAnswers() {
+            const detailedData = {};
+
+            questionConfig.forEach(questionConf => {
+                const key = questionConf.key;
+                detailedData[key] = {
+                    config: questionConf,
+                    answers: {}
+                };
+
+                if (questionConf.type === 'scale') {
+                    // Pour les echelles numeriques
+                    for (let i = questionConf.min; i <= questionConf.max; i++) {
+                        detailedData[key].answers[i] = 0;
+                    }
+
+                    responses.forEach(r => {
+                        if (r[key] !== undefined && !isNaN(parseFloat(r[key]))) {
+                            const value = Math.round(parseFloat(r[key]));
+                            if (value >= questionConf.min && value <= questionConf.max) {
+                                detailedData[key].answers[value]++;
+                            }
+                        }
+                    });
+                } else if (questionConf.type === 'multiple') {
+                    // Pour les questions a reponses multiples
+                    Object.keys(questionConf.options).forEach(optionKey => {
+                        detailedData[key].answers[optionKey] = 0;
+                    });
+
+                    responses.forEach(r => {
+                        if (r[key]) {
+                            if (Array.isArray(r[key])) {
+                                r[key].forEach(answer => {
+                                    const normalizedAnswer = answer.toLowerCase().trim();
+                                    if (detailedData[key].answers.hasOwnProperty(normalizedAnswer)) {
+                                        detailedData[key].answers[normalizedAnswer]++;
+                                    }
+                                });
+                            } else if (typeof r[key] === 'string') {
+                                const normalizedAnswer = r[key].toLowerCase().trim();
+                                if (detailedData[key].answers.hasOwnProperty(normalizedAnswer)) {
+                                    detailedData[key].answers[normalizedAnswer]++;
+                                }
+                            }
+                        }
+                    });
+                } else if (questionConf.type === 'age_groups') {
+                    // Pour les tranches d'age
+                    Object.keys(questionConf.options).forEach(optionKey => {
+                        detailedData[key].answers[optionKey] = 0;
+                    });
+
+                    responses.forEach(r => {
+                        if (r[key] !== undefined && r[key] !== null) {
+                            if (typeof r[key] === 'number') {
+                                // Conversion age numerique vers tranche
+                                const age = r[key];
+                                let ageGroup;
+                                if (age <= 25) ageGroup = '20-25';
+                                else if (age <= 30) ageGroup = '26-30';
+                                else if (age <= 35) ageGroup = '31-35';
+                                else if (age <= 40) ageGroup = '36-40';
+                                else if (age <= 45) ageGroup = '41-45';
+                                else if (age <= 50) ageGroup = '46-50';
+                                else ageGroup = '51+';
+                                
+                                if (detailedData[key].answers.hasOwnProperty(ageGroup)) {
+                                    detailedData[key].answers[ageGroup]++;
+                                }
+                            } else if (typeof r[key] === 'string') {
+                                const normalizedAnswer = r[key].toLowerCase().trim();
+                                if (detailedData[key].answers.hasOwnProperty(normalizedAnswer)) {
+                                    detailedData[key].answers[normalizedAnswer]++;
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    // Pour les autres types de questions (select, frequency, level, satisfaction)
+                    Object.keys(questionConf.options).forEach(optionKey => {
+                        detailedData[key].answers[optionKey] = 0;
+                    });
+
+                    responses.forEach(r => {
+                        if (r[key] && typeof r[key] === 'string') {
+                            const normalizedAnswer = r[key].toLowerCase().trim();
+                            if (detailedData[key].answers.hasOwnProperty(normalizedAnswer)) {
+                                detailedData[key].answers[normalizedAnswer]++;
+                            }
+                        }
+                    });
+                }
+
+                // Calcul du total des reponses pour cette question
+                detailedData[key].totalAnswers = Object.values(detailedData[key].answers).reduce((sum, count) => sum + count, 0);
+            });
+
+            return detailedData;
+        }
+
+        // Creation des graphiques selon l'ordre des questions
+        function createOrderedCharts() {
+            const container = document.getElementById('chartsContainer');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            // Nettoyer les graphiques existants
+            Object.values(charts).forEach(chart => {
+                if (chart && typeof chart.destroy === 'function') {
+                    chart.destroy();
+                }
+            });
+            charts = {};
+
+            // Creer un graphique pour chaque question avec des donnees
+            questionConfig.forEach(questionConf => {
+                const questionData = analysisData.detailedAnswers[questionConf.key];
+                if (questionData && questionData.totalAnswers > 0) {
+                    createQuestionChart(questionConf, questionData);
+                }
+            });
+        }
+
+        // Creation d'un graphique pour une question specifique
+        function createQuestionChart(questionConf, questionData) {
+            const container = document.getElementById('chartsContainer');
+            if (!container) return;
+            
+            const chartDiv = document.createElement('div');
+            chartDiv.className = 'chart-container';
+            
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'chart-title';
+            titleDiv.textContent = questionConf.label;
+            
+            const canvas = document.createElement('canvas');
+            const chartId = 'chart_' + questionConf.key + '_' + Date.now();
+            canvas.id = chartId;
+            canvas.className = 'chart-canvas';
+            
+            chartDiv.appendChild(titleDiv);
+            chartDiv.appendChild(canvas);
+            container.appendChild(chartDiv);
+
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            // Preparation des donnees
+            const labels = [];
+            const values = [];
+            const colors = [];
+
+            Object.entries(questionData.answers)
+                .filter(([key, value]) => value > 0) // Afficher seulement les reponses non vides
+                .sort(([,a], [,b]) => b - a) // Tri par valeur decroissante
+                .forEach(([key, value], index) => {
+                    // Utiliser les labels de configuration si disponibles
+                    let friendlyLabel = key;
+                    if (questionConf.options && questionConf.options[key]) {
+                        friendlyLabel = questionConf.options[key];
+                    } else if (questionConf.type === 'scale') {
+                        friendlyLabel = key + '/10';
+                    } else {
+                        friendlyLabel = key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
+                    }
+                    
+                    labels.push(friendlyLabel);
+                    values.push(value);
+                    colors.push(colorPalette[index % colorPalette.length]);
+                });
+
+            const chartData = {
+                labels: labels,
+                datasets: [{
+                    label: 'Nombre de reponses',
+                    data: values,
+                    backgroundColor: colors,
+                    borderColor: colors.map(color => color + '80'),
+                    borderWidth: 2,
+                    hoverOffset: questionConf.type === 'scale' ? 0 : 8
+                }]
+            };
+
+            // Choisir le type de graphique selon le type de question
+            let chartType = 'bar';
+            if (['select', 'satisfaction'].includes(questionConf.type) && labels.length <= 6) {
+                chartType = 'doughnut';
+            } else if (questionConf.type === 'multiple') {
+                chartType = 'bar';
+            } else if (questionConf.type === 'scale') {
+                chartType = 'bar';
+            }
+
+            const options = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: chartType === 'bar' ? 'top' : 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true,
+                            font: {
+                                size: 12,
+                                weight: '500'
+                            },
+                            generateLabels: function(chart) {
+                                const original = Chart.defaults.plugins.legend.labels.generateLabels;
+                                const labels = original.call(this, chart);
+                                
+                                // Ajouter les pourcentages
+                                const total = chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                labels.forEach((label, index) => {
+                                    const value = chart.data.datasets[0].data[index];
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
+                                    label.text += ` (${percentage}%)`;
+                                });
+                                
+                                return labels;
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(26, 54, 93, 0.95)',
+                        titleColor: 'white',
+                        bodyColor: 'white',
+                        borderColor: '#4299e1',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0';
+                                return `${context.label}: ${context.parsed} reponse${context.parsed > 1 ? 's' : ''} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            };
+
+            // Configuration specifique pour les graphiques en barres
+            if (chartType === 'bar') {
+                options.indexAxis = 'x';
+                options.scales = {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1,
+                            font: {
+                                size: 11
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            font: {
+                                size: 11
+                            },
+                            maxRotation: 45
+                        },
+                        grid: {
+                            display: false
+                        }
+                    }
+                };
+            }
+
+            try {
+                charts[chartId] = new Chart(ctx, {
+                    type: chartType,
+                    data: chartData,
+                    options: options
+                });
+            } catch (error) {
+                console.error('Erreur creation graphique:', error);
+            }
+        }
+
+        // Export PDF professionnel avec analyse detaillee dans l'ordre des questions
+        function exportDetailedPDF() {
+            try {
+                if (typeof window.jspdf === 'undefined') {
+                    throw new Error('Bibliotheque jsPDF non chargee');
+                }
+                
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                let y = 25;
+                const margin = 20;
+                const pageHeight = doc.internal.pageSize.getHeight();
+                const pageWidth = doc.internal.pageSize.getWidth();
+
+                // Fonction pour gerer les sauts de page
+                function checkNewPage(additionalHeight = 30) {
+                    if (y + additionalHeight > pageHeight - 25) {
+                        doc.addPage();
+                        y = 30;
+                        return true;
+                    }
+                    return false;
+                }
+
+                // En-tete professionnel
+                doc.setFontSize(24);
+                doc.setTextColor(30, 58, 114);
+                doc.text('BAROMETRE SANTE 2025', pageWidth / 2, y, { align: 'center' });
+                y += 15;
+                
+                doc.setFontSize(16);
+                doc.setTextColor(45, 90, 160);
+                doc.text('Cabinet Saint Germain Audit', pageWidth / 2, y, { align: 'center' });
+                y += 12;
+                
+                doc.setFontSize(12);
+                doc.setTextColor(100, 100, 100);
+                const now = new Date();
+                const dateStr = now.toLocaleDateString('fr-FR', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                doc.text(`Rapport genere le ${dateStr}`, pageWidth / 2, y, { align: 'center' });
+                y += 25;
+
+                // Ligne de separation elegante
+                doc.setDrawColor(66, 153, 225);
+                doc.setLineWidth(1.5);
+                doc.line(margin, y, pageWidth - margin, y);
+                y += 25;
+
+                // Synthese executive
+                checkNewPage(80);
+                doc.setFontSize(18);
+                doc.setTextColor(26, 54, 93);
+                doc.text('SYNTHESE EXECUTIVE', margin, y);
+                y += 20;
+
+                doc.setFontSize(12);
+                doc.setTextColor(60, 60, 60);
+                
+                const synthese = [
+                    `Nombre total de repondants : ${analysisData.total}`,
+                    `Note sante physique moyenne : ${analysisData.avgHealthPhys.toFixed(1)}/10`,
+                    `Note sante psychologique moyenne : ${analysisData.avgHealthPsych.toFixed(1)}/10`,
+                    `Pourcentage de collaborateurs stresses : ${Math.round(analysisData.stressPercent)}%`,
+                    `QVT jugee satisfaisante (bonne/excellente) : ${Math.round(analysisData.qvtGoodPercent)}%`,
+                    `Collaborateurs a risque de burnout : ${Math.round(analysisData.burnoutPercent)}%`
+                ];
+
+                synthese.forEach(line => {
+                    checkNewPage(10);
+                    doc.text('• ' + line, margin + 5, y);
+                    y += 8;
+                });
+
+                y += 20;
+
+                // Analyse detaillee question par question dans l'ordre
+                doc.setFontSize(18);
+                doc.setTextColor(26, 54, 93);
+                doc.text('ANALYSE DETAILLEE PAR QUESTION', margin, y);
+                y += 20;
+
+                // Parcourir chaque question dans l'ordre
+                questionConfig.forEach((questionConf, index) => {
+                    const questionData = analysisData.detailedAnswers[questionConf.key];
+                    if (!questionData || questionData.totalAnswers === 0) return;
+
+                    checkNewPage(80);
+                    
+                    // Titre de la question
+                    doc.setFontSize(14);
+                    doc.setTextColor(26, 54, 93);
+                    doc.text(`${index + 1}. ${questionConf.label.toUpperCase()}`, margin, y);
+                    y += 10;
+
+                    // Question complete
+                    doc.setFontSize(11);
+                    doc.setTextColor(80, 80, 80);
+                    const questionLines = doc.splitTextToSize(`Question: ${questionConf.question}`, pageWidth - 2 * margin);
+                    questionLines.forEach(line => {
+                        checkNewPage(8);
+                        doc.text(line, margin + 5, y);
+                        y += 6;
+                    });
+                    y += 5;
+
+                    // Total des reponses pour cette question
+                    doc.setFontSize(11);
+                    doc.setTextColor(60, 60, 60);
+                    doc.text(`Nombre de repondants : ${questionData.totalAnswers}`, margin + 5, y);
+                    y += 10;
+
+                    // Detail des reponses
+                    doc.setFontSize(10);
+                    doc.setTextColor(60, 60, 60);
+
+                    Object.entries(questionData.answers)
+                        .filter(([key, value]) => value > 0)
+                        .sort(([,a], [,b]) => b - a)
+                        .forEach(([key, count]) => {
+                            const percent = questionData.totalAnswers > 0 ? ((count / questionData.totalAnswers) * 100).toFixed(1) : '0.0';
+                            
+                            // Utiliser le label approprie
+                            let label = key;
+                            if (questionConf.options && questionConf.options[key]) {
+                                label = questionConf.options[key];
+                            } else if (questionConf.type === 'scale') {
+                                label = `Note ${key}/10`;
+                            } else {
+                                label = key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
+                            }
+                            
+                            checkNewPage(8);
+                            doc.text(`  • ${label}: ${count} reponse${count > 1 ? 's' : ''} (${percent}%)`, margin + 10, y);
+                            y += 7;
+                        });
+
+                    y += 15;
+                });
+
+                // Recommandations strategiques
+                checkNewPage(100);
+                doc.setFontSize(16);
+                doc.setTextColor(26, 54, 93);
+                doc.text('RECOMMANDATIONS STRATEGIQUES', margin, y);
+                y += 15;
+
+                doc.setFontSize(11);
+                doc.setTextColor(60, 60, 60);
+
+                const recommendations = generateDetailedRecommendations();
+                recommendations.forEach((rec, index) => {
+                    checkNewPage(20);
+                    
+                    // Titre de la recommandation
+                    doc.setFont(undefined, 'bold');
+                    doc.text(`${index + 1}. ${rec.title}`, margin + 5, y);
+                    y += 8;
+                    
+                    // Description
+                    doc.setFont(undefined, 'normal');
+                    const lines = doc.splitTextToSize(rec.description, pageWidth - 2 * margin - 10);
+                    lines.forEach(line => {
+                        checkNewPage(8);
+                        doc.text(line, margin + 10, y);
+                        y += 6;
+                    });
+                    y += 8;
+                });
+
+                // Plan d'action
+                checkNewPage(60);
+                doc.setFontSize(16);
+                doc.setTextColor(26, 54, 93);
+                doc.text('PLAN D\'ACTION RECOMMANDE', margin, y);
+                y += 15;
+
+                doc.setFontSize(11);
+                doc.setTextColor(60, 60, 60);
+
+                const actionPlan = generateActionPlan();
+                actionPlan.forEach((action, index) => {
+                    checkNewPage(25);
+                    
+                    doc.setFont(undefined, 'bold');
+                    doc.text(`${action.priority} - ${action.title}`, margin + 5, y);
+                    y += 8;
+                    
+                    doc.setFont(undefined, 'normal');
+                    doc.text(`Delai : ${action.timeline}`, margin + 10, y);
+                    y += 6;
+                    
+                    const descLines = doc.splitTextToSize(action.description, pageWidth - 2 * margin - 10);
+                    descLines.forEach(line => {
+                        checkNewPage(6);
+                        doc.text(line, margin + 10, y);
+                        y += 6;
+                    });
+                    y += 8;
+                });
+
+                // Pied de page sur toutes les pages
+                const totalPages = doc.internal.getNumberOfPages();
+                for (let i = 1; i <= totalPages; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(9);
+                    doc.setTextColor(120, 120, 120);
+                    
+                    // Pied de page gauche
+                    doc.text(
+                        'Cabinet Saint Germain Audit - Confidentiel',
+                        margin,
+                        pageHeight - 15
+                    );
+                    
+                    // Pied de page centre
+                    doc.text(
+                        `Barometre Sante 2025`,
+                        pageWidth / 2,
+                        pageHeight - 15,
+                        { align: 'center' }
+                    );
+                    
+                    // Pied de page droite
+                    doc.text(
+                        `Page ${i}/${totalPages}`,
+                        pageWidth - margin,
+                        pageHeight - 15,
+                        { align: 'right' }
+                    );
+                }
+
+                // Sauvegarde avec nom intelligent
+                const timestamp = now.toISOString().slice(0, 10).replace(/-/g, '');
+                const fileName = `Barometre_Sante_2025_${timestamp}_${analysisData.total}repondants.pdf`;
+                
+                doc.save(fileName);
+                
+                showAlert(`Rapport PDF genere avec succes : ${fileName}`, 'success');
+                
+            } catch (error) {
+                console.error('Erreur generation PDF:', error);
+                showAlert(`Erreur lors de la generation du PDF : ${error.message}`, 'error');
+            }
+        }
+
+        // Fonctions utilitaires pour le PDF
+        function getHealthStatus(score) {
+            if (score >= 8) return '(Excellente)';
+            if (score >= 7) return '(Tres bonne)';
+            if (score >= 6) return '(Bonne)';
+            if (score >= 5) return '(Correcte)';
+            if (score >= 4) return '(Preoccupante)';
+            return '(Critique)';
+        }
+
+        function getBurnoutRiskLevel(percent) {
+            if (percent < 10) return '(Risque faible)';
+            if (percent < 20) return '(Risque modere)';
+            if (percent < 30) return '(Risque eleve)';
+            return '(Risque critique)';
+        }
+
+        // Generation des recommandations detaillees
+        function generateDetailedRecommendations() {
+            const recommendations = [];
+
+            // Recommandations sante physique
+            if (analysisData.avgHealthPhys < 6) {
+                recommendations.push({
+                    title: 'Amelioration de la sante physique',
+                    description: 'Mettre en place un programme d\'ergonomie au poste de travail, organiser des sessions d\'activite physique adaptee et sensibiliser aux bonnes pratiques de sante au travail. Considerer l\'amenagement des espaces de travail pour favoriser le bien-etre physique.'
+                });
+            }
+
+            // Recommandations sante psychologique
+            if (analysisData.avgHealthPsych < 6) {
+                recommendations.push({
+                    title: 'Soutien a la sante psychologique',
+                    description: 'Developper un programme d\'accompagnement psychologique avec des professionnels qualifies. Organiser des ateliers de gestion du stress et de prevention des risques psychosociaux. Mettre en place une cellule d\'ecoute et de soutien.'
+                });
+            }
+
+            // Recommandations gestion du stress
+            if (analysisData.stressPercent > 50) {
+                recommendations.push({
+                    title: 'Reduction des sources de stress',
+                    description: 'Identifier et traiter les causes principales de stress organisationnel. Reviser la repartition des charges de travail, ameliorer les processus de communication interne et renforcer l\'autonomie des collaborateurs dans leurs missions.'
+                });
+            }
+
+            // Recommandations QVT
+            if (analysisData.qvtGoodPercent < 60) {
+                recommendations.push({
+                    title: 'Amelioration de la qualite de vie au travail',
+                    description: 'Developper un plan d\'amelioration de la QVT en concertation avec les equipes. Focus sur l\'equilibre vie professionnelle/personnelle, la reconnaissance du travail accompli et l\'amelioration de l\'environnement de travail.'
+                });
+            }
+
+            // Recommandations burnout
+            if (analysisData.burnoutPercent > 15) {
+                recommendations.push({
+                    title: 'Prevention du burnout',
+                    description: 'Mise en place urgente d\'un dispositif de prevention et de detection precoce du burnout. Formation des managers a la detection des signaux d\'alerte et creation d\'un protocole d\'intervention rapide.'
+                });
+            }
+
+            // Recommandations generales
+            recommendations.push({
+                title: 'Communication et dialogue social',
+                description: 'Renforcer le dialogue social par des reunions d\'equipe regulieres, la mise en place d\'un systeme de feedback continu et l\'amelioration de la communication descendante et ascendante.'
+            });
+
+            return recommendations;
+        }
+
+        // Generation du plan d'action
+        function generateActionPlan() {
+            const actions = [];
+            
+            // Actions prioritaires basees sur l'analyse
+            if (analysisData.burnoutPercent > 20) {
+                actions.push({
+                    priority: 'URGENT',
+                    title: 'Dispositif de prevention burnout',
+                    timeline: 'Sous 30 jours',
+                    description: 'Formation managers, cellule d\'ecoute, protocole d\'intervention'
+                });
+            }
+            
+            if (analysisData.avgHealthPsych < 5) {
+                actions.push({
+                    priority: 'PRIORITE 1',
+                    title: 'Programme de soutien psychologique',
+                    timeline: '1-2 mois',
+                    description: 'Partenariat avec professionnels, ateliers de gestion du stress'
+                });
+            }
+            
+            actions.push({
+                priority: 'PRIORITE 2',
+                title: 'Analyse approfondie des sources de stress',
+                timeline: '2-3 mois',
+                description: 'Audit organisationnel, enquete qualitative complementaire'
+            });
+            
+            actions.push({
+                priority: 'PRIORITE 3',
+                title: 'Plan d\'amelioration QVT',
+                timeline: '3-6 mois',
+                description: 'Co-construction avec les equipes, mise en oeuvre progressive'
+            });
+            
+            actions.push({
+                priority: 'SUIVI',
+                title: 'Reevaluation du barometre',
+                timeline: '6 mois',
+                description: 'Nouvelle enquete pour mesurer l\'impact des actions mises en place'
+            });
+
+            return actions;
+        }
+
+        // Effacement complet et securise
+        function clearAll() {
+            try {
+                // Reinitialisation des donnees
+                responses = [];
+                analysisData = {};
+                
+                // Nettoyage de l'interface
+                const elements = {
+                    fileList: 'none',
+                    analysisSection: 'none',
+                    progressSection: 'none'
+                };
+                
+                Object.entries(elements).forEach(([id, display]) => {
+                    const element = document.getElementById(id);
+                    if (element) element.style.display = display;
+                });
+                
+                // Reinitialisation des controles
+                const analyzeBtn = document.getElementById('analyzeBtn');
+                if (analyzeBtn) analyzeBtn.disabled = true;
+                
+                const fileInput = document.getElementById('fileInput');
+                if (fileInput) fileInput.value = '';
+                
+                // Nettoyage des alertes et graphiques
+                const alerts = document.getElementById('alerts');
+                if (alerts) alerts.innerHTML = '';
+                
+                const chartsContainer = document.getElementById('chartsContainer');
+                if (chartsContainer) chartsContainer.innerHTML = '';
+                
+                // Destruction des graphiques
+                Object.values(charts).forEach(chart => {
+                    if (chart && typeof chart.destroy === 'function') {
+                        chart.destroy();
+                    }
+                });
+                charts = {};
+                
+                // Reinitialisation des statistiques
+                const stats = ['totalResponses', 'avgHealthPhys', 'avgHealthPsych', 'stressCount', 'qvtGood', 'burnoutRisk'];
+                stats.forEach(statId => {
+                    const element = document.getElementById(statId);
+                    if (element) {
+                        element.textContent = statId.includes('Count') || statId.includes('Good') || statId.includes('Risk') ? '0%' : '0';
+                    }
+                });
+                
+                showAlert('Toutes les donnees ont ete effacees avec succes', 'info');
+                
+            } catch (error) {
+                console.error('Erreur lors du nettoyage:', error);
+                showAlert('Erreur lors de l\'effacement des donnees', 'error');
+            }
+        }
+
+        // Systeme d'alertes ameliore
+        function showAlert(message, type) {
+            const container = document.getElementById('alerts');
+            if (!container) return;
+            
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            
+            // Animation d'apparition
+            alert.style.opacity = '0';
+            alert.style.transform = 'translateY(-10px)';
+            container.appendChild(alert);
+            
+            // Transition fluide
+            setTimeout(() => {
+                alert.style.opacity = '1';
+                alert.style.transform = 'translateY(0)';
+            }, 100);
+            
+            // Auto-suppression avec animation
+            setTimeout(() => {
+                if (alert.parentNode) {
+                    alert.style.opacity = '0';
+                    alert.style.transform = 'translateY(-10px)';
+                    setTimeout(() => {
+                        if (alert.parentNode) {
+                            alert.remove();
+                        }
+                    }, 300);
+                }
+            }, 5000);
+        }
+
+        // Log de confirmation du chargement
+        console.log('Barometre Sante 2025 - Application entierement chargee et fonctionnelle');
+        console.log('Version: Production Ready - Sans emojis');
+        console.log('Features: Upload, Analyse detaillee par question, Charts ordonnes, PDF complet');
+    </script>
+</body>
+</html><!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -373,16 +1448,16 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🏥 Baromètre Santé 2025</h1>
+            <h1>Barometre Sante 2025</h1>
             <h2>Cabinet Saint Germain Audit</h2>
-            <p>Analyse complète et professionnelle des résultats avec export PDF détaillé</p>
+            <p>Analyse complete et professionnelle des resultats avec export PDF detaille</p>
         </div>
 
         <div class="upload-section">
             <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
-                <h3>📊 Importer les fichiers JSON</h3>
-                <p>Cliquez ici ou glissez-déposez vos fichiers de réponses du baromètre</p>
-                <p style="font-size: 0.9rem; color: #718096;">Formats acceptés: .json uniquement</p>
+                <h3>Importer les fichiers JSON</h3>
+                <p>Cliquez ici ou glissez-deposez vos fichiers de reponses du barometre</p>
+                <p style="font-size: 0.9rem; color: #718096;">Formats acceptes: .json uniquement</p>
                 <input type="file" id="fileInput" multiple accept=".json" style="display: none;">
             </div>
             
@@ -397,10 +1472,10 @@
             
             <div style="text-align: center; margin-top: 30px;">
                 <button id="analyzeBtn" class="btn" disabled onclick="analyzeData()">
-                    🔍 Analyser les données
+                    Analyser les donnees
                 </button>
                 <button class="btn btn-danger" onclick="clearAll()">
-                    🗑️ Tout effacer
+                    Tout effacer
                 </button>
             </div>
             
@@ -408,24 +1483,24 @@
         </div>
 
         <div class="analysis-section" id="analysisSection">
-            <h2 class="section-title">📈 Résultats de l'Analyse</h2>
+            <h2 class="section-title">Resultats de l'Analyse</h2>
             
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-number" id="totalResponses">0</div>
-                    <div class="stat-label">Répondants</div>
+                    <div class="stat-label">Repondants</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number" id="avgHealthPhys">0</div>
-                    <div class="stat-label">Santé Physique (/10)</div>
+                    <div class="stat-label">Sante Physique (/10)</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number" id="avgHealthPsych">0</div>
-                    <div class="stat-label">Santé Psychologique (/10)</div>
+                    <div class="stat-label">Sante Psychologique (/10)</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number" id="stressCount">0%</div>
-                    <div class="stat-label">Personnes Stressées</div>
+                    <div class="stat-label">Personnes Stressees</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number" id="qvtGood">0%</div>
@@ -441,7 +1516,7 @@
 
             <div style="text-align: center; margin-top: 50px;">
                 <button class="btn" onclick="exportDetailedPDF()" style="font-size: 1.2rem; padding: 20px 40px;">
-                    📄 Générer Rapport PDF Complet
+                    Generer Rapport PDF Complet
                 </button>
             </div>
         </div>
@@ -453,7 +1528,159 @@
         let charts = {};
         let analysisData = {};
 
-        // Palette de couleurs étendue et professionnelle
+        // Configuration complete des questions du barometre dans l'ordre
+        const questionConfig = [
+            {
+                key: 'profil',
+                label: 'Profil professionnel',
+                question: 'Quel est votre profil professionnel ?',
+                type: 'select',
+                options: {
+                    'auditeur': 'Auditeur/Auditrice',
+                    'chef_mission': 'Chef de mission',
+                    'directeur_mission': 'Directeur de mission',
+                    'manager': 'Manager',
+                    'senior': 'Senior',
+                    'junior': 'Junior'
+                }
+            },
+            {
+                key: 'age',
+                label: 'Tranche d\'age',
+                question: 'Dans quelle tranche d\'age vous situez-vous ?',
+                type: 'age_groups',
+                options: {
+                    '20-25': '20-25 ans',
+                    '26-30': '26-30 ans',
+                    '31-35': '31-35 ans',
+                    '36-40': '36-40 ans',
+                    '41-45': '41-45 ans',
+                    '46-50': '46-50 ans',
+                    '51+': '51+ ans'
+                }
+            },
+            {
+                key: 'sante_physique',
+                label: 'Note sante physique',
+                question: 'Comment evaluez-vous votre sante physique actuelle ?',
+                type: 'scale',
+                min: 1,
+                max: 10,
+                scaleLabels: {1: 'Tres mauvaise', 5: 'Moyenne', 10: 'Excellente'}
+            },
+            {
+                key: 'sante_psychologique',
+                label: 'Note sante psychologique',
+                question: 'Comment evaluez-vous votre sante psychologique actuelle ?',
+                type: 'scale',
+                min: 1,
+                max: 10,
+                scaleLabels: {1: 'Tres mauvaise', 5: 'Moyenne', 10: 'Excellente'}
+            },
+            {
+                key: 'qvt',
+                label: 'Qualite de vie au travail',
+                question: 'Comment qualifieriez-vous votre qualite de vie au travail ?',
+                type: 'select',
+                options: {
+                    'excellente': 'Excellente',
+                    'bonne': 'Bonne',
+                    'correcte': 'Correcte',
+                    'moyenne': 'Moyenne',
+                    'decevante': 'Decevante',
+                    'mauvaise': 'Mauvaise',
+                    'nocive': 'Nocive'
+                }
+            },
+            {
+                key: 'sources_stress',
+                label: 'Sources de stress',
+                question: 'Quelles sont vos principales sources de stress ? (Plusieurs reponses possibles)',
+                type: 'multiple',
+                options: {
+                    'gestion_clients': 'Gestion des clients',
+                    'tenue_delais': 'Respect des delais',
+                    'pression_hierarchique': 'Pression hierarchique',
+                    'complexite_dossiers': 'Complexite des dossiers',
+                    'charge_travail': 'Charge de travail excessive',
+                    'manque_reconnaissance': 'Manque de reconnaissance',
+                    'equilibre_vie': 'Equilibre vie pro/perso',
+                    'relation_collegues': 'Relations avec les collegues',
+                    'incertitude_emploi': 'Incertitude sur l\'emploi',
+                    'pas_stresse': 'Je ne suis pas stresse',
+                    'aucun': 'Aucune source de stress'
+                }
+            },
+            {
+                key: 'pression_echeances',
+                label: 'Pression liee aux echeances',
+                question: 'Ressentez-vous une pression liee aux echeances ?',
+                type: 'frequency',
+                options: {
+                    'jamais': 'Jamais',
+                    'rarement': 'Rarement',
+                    'parfois': 'Parfois',
+                    'souvent': 'Souvent',
+                    'toujours': 'Toujours'
+                }
+            },
+            {
+                key: 'charge_travail',
+                label: 'Charge de travail',
+                question: 'Comment percevez-vous votre charge de travail actuelle ?',
+                type: 'level',
+                options: {
+                    'tres_faible': 'Tres faible',
+                    'faible': 'Faible',
+                    'normale': 'Normale',
+                    'elevee': 'Elevee',
+                    'tres_elevee': 'Tres elevee',
+                    'excessive': 'Excessive'
+                }
+            },
+            {
+                key: 'reconnaissance',
+                label: 'Reconnaissance au travail',
+                question: 'Vous sentez-vous reconnu(e) dans votre travail ?',
+                type: 'satisfaction',
+                options: {
+                    'tres_satisfait': 'Tres satisfait(e)',
+                    'satisfait': 'Satisfait(e)',
+                    'neutre': 'Neutre',
+                    'insatisfait': 'Insatisfait(e)',
+                    'tres_insatisfait': 'Tres insatisfait(e)'
+                }
+            },
+            {
+                key: 'equilibre_vie',
+                label: 'Equilibre vie professionnelle/personnelle',
+                question: 'Comment evaluez-vous votre equilibre entre vie professionnelle et personnelle ?',
+                type: 'satisfaction',
+                options: {
+                    'tres_bon': 'Tres bon',
+                    'bon': 'Bon',
+                    'correct': 'Correct',
+                    'difficile': 'Difficile',
+                    'tres_difficile': 'Tres difficile'
+                }
+            },
+            {
+                key: 'climat_social',
+                label: 'Climat social',
+                question: 'Comment percevez-vous le climat social dans votre equipe/entreprise ?',
+                type: 'satisfaction',
+                options: {
+                    'tres_bon': 'Tres bon',
+                    'bon': 'Bon',
+                    'correct': 'Correct',
+                    'tendu': 'Tendu',
+                    'tres_tendu': 'Tres tendu',
+                    'conflictuel': 'Conflictuel'
+                }
+            }
+        ];
+
+        // Palette de couleurs etendue
         const colorPalette = [
             '#1e3c72', '#2a5298', '#4299e1', '#63b3ed', '#90cdf4',
             '#38a169', '#48bb78', '#68d391', '#9ae6b4', '#c6f6d5',
@@ -462,62 +1689,21 @@
             '#2d3748', '#4a5568', '#718096', '#a0aec0', '#cbd5e0'
         ];
 
-        // Labels français pour une interface professionnelle
-        const frenchLabels = {
-            profils: {
-                'auditeur': 'Auditeur/Auditrice',
-                'chef_mission': 'Chef de mission',
-                'directeur_mission': 'Directeur de mission',
-                'manager': 'Manager',
-                'senior': 'Senior',
-                'junior': 'Junior'
-            },
-            qvt: {
-                'excellente': 'Excellente',
-                'bonne': 'Bonne',
-                'correcte': 'Correcte',
-                'moyenne': 'Moyenne',
-                'decevante': 'Décevante',
-                'mauvaise': 'Mauvaise',
-                'nocive': 'Nocive'
-            },
-            stress: {
-                'gestion_clients': 'Gestion des clients',
-                'tenue_delais': 'Respect des délais',
-                'pression_hierarchique': 'Pression hiérarchique',
-                'complexite_dossiers': 'Complexité des dossiers',
-                'charge_travail': 'Charge de travail',
-                'manque_reconnaissance': 'Manque de reconnaissance',
-                'equilibre_vie': 'Équilibre vie pro/perso',
-                'pas_stresse': 'Pas stressé',
-                'aucun': 'Aucun stress'
-            },
-            ages: {
-                '20-25': '20-25 ans',
-                '26-30': '26-30 ans',
-                '31-35': '31-35 ans',
-                '36-40': '36-40 ans',
-                '41-45': '41-45 ans',
-                '46-50': '46-50 ans',
-                '51+': '51+ ans'
-            }
-        };
-
-        // Initialisation sécurisée
+        // Initialisation securisee
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 Baromètre Santé 2025 - Application chargée');
+            console.log('Application Barometre Sante 2025 chargee');
             
             try {
-                // Vérification des éléments critiques
+                // Verification des elements critiques
                 const requiredElements = ['fileInput', 'analyzeBtn', 'alerts', 'chartsContainer'];
                 const missingElements = requiredElements.filter(id => !document.getElementById(id));
                 
                 if (missingElements.length > 0) {
-                    console.error('❌ Éléments manquants:', missingElements);
+                    console.error('Elements manquants:', missingElements);
                     return;
                 }
                 
-                // Événements de fichier
+                // Evenements de fichier
                 const fileInput = document.getElementById('fileInput');
                 if (fileInput) {
                     fileInput.addEventListener('change', handleFileSelect);
@@ -531,14 +1717,14 @@
                     uploadZone.addEventListener('dragleave', handleDragLeave);
                 }
                 
-                console.log('✅ Initialisation terminée avec succès');
+                console.log('Initialisation terminee avec succes');
             } catch (error) {
-                console.error('❌ Erreur lors de l\'initialisation:', error);
+                console.error('Erreur lors de l\'initialisation:', error);
                 showAlert('Erreur lors de l\'initialisation de l\'application', 'error');
             }
         });
 
-        // Gestion sécurisée du drag & drop
+        // Gestion securisee du drag & drop
         function handleDragOver(event) {
             event.preventDefault();
             event.stopPropagation();
@@ -564,10 +1750,10 @@
             }
         }
 
-        // Gestion de la sélection de fichiers
+        // Gestion de la selection de fichiers
         function handleFileSelect(event) {
             const files = event.target.files;
-            console.log('📁 Fichiers sélectionnés:', files.length);
+            console.log('Fichiers selectionnes:', files.length);
             
             if (files.length > 0) {
                 handleFiles(files);
@@ -577,16 +1763,16 @@
         // Traitement robuste des fichiers
         function handleFiles(files) {
             if (!files || files.length === 0) {
-                showAlert('Aucun fichier sélectionné', 'error');
+                showAlert('Aucun fichier selectionne', 'error');
                 return;
             }
             
-            // Réinitialisation
+            // Reinitialisation
             responses = [];
             showProgressSection();
             
             const fileList = document.getElementById('fileList');
-            fileList.innerHTML = '<h3 style="color: #2d3748; margin-bottom: 20px;">📋 Traitement des fichiers...</h3>';
+            fileList.innerHTML = '<h3 style="color: #2d3748; margin-bottom: 20px;">Traitement des fichiers...</h3>';
             fileList.style.display = 'block';
 
             let processed = 0;
@@ -595,1177 +1781,6 @@
 
             // Traitement asynchrone de chaque fichier
             Array.from(files).forEach((file, index) => {
-                console.log(`📄 Traitement fichier ${index + 1}/${total}: ${file.name}`);
+                console.log(`Traitement fichier ${index + 1}/${total}: ${file.name}`);
 
-                if (!file.name.toLowerCase().endsWith('.json')) {
-                    addFileStatus(file.name, 'Format non supporté (.json requis)', false);
-                    processed++;
-                    updateProgress(processed, total);
-                    checkComplete();
-                    return;
-                }
-
-                const reader = new FileReader();
-                
-                reader.onload = function(e) {
-                    try {
-                        const rawData = e.target.result;
-                        if (!rawData || rawData.trim() === '') {
-                            throw new Error('Fichier vide');
-                        }
-                        
-                        const data = JSON.parse(rawData);
-                        console.log(`✅ JSON parsé pour ${file.name}`);
-                        
-                        if (validateAndCleanData(data)) {
-                            responses.push(data);
-                            valid++;
-                            addFileStatus(file.name, `✅ Chargé avec succès (ID: ${data.id})`, true);
-                        } else {
-                            addFileStatus(file.name, '❌ Structure de données invalide', false);
-                        }
-                    } catch (error) {
-                        console.error(`❌ Erreur pour ${file.name}:`, error);
-                        addFileStatus(file.name, `❌ Erreur: ${error.message}`, false);
-                    }
-                    
-                    processed++;
-                    updateProgress(processed, total);
-                    checkComplete();
-                };
-                
-                reader.onerror = function() {
-                    addFileStatus(file.name, '❌ Erreur de lecture du fichier', false);
-                    processed++;
-                    updateProgress(processed, total);
-                    checkComplete();
-                };
-                
-                reader.readAsText(file, 'UTF-8');
-            });
-
-            function updateProgress(current, total) {
-                const percent = Math.round((current / total) * 100);
-                const progressFill = document.getElementById('progressFill');
-                const progressText = document.getElementById('progressText');
-                
-                if (progressFill && progressText) {
-                    progressFill.style.width = percent + '%';
-                    progressText.textContent = `Traitement ${current}/${total} fichiers (${percent}%)`;
-                }
-            }
-
-            function checkComplete() {
-                if (processed === total) {
-                    hideProgressSection();
-                    console.log(`✅ Traitement terminé. Fichiers valides: ${valid}/${total}`);
-                    
-                    if (valid > 0) {
-                        document.getElementById('analyzeBtn').disabled = false;
-                        showAlert(`🎉 ${valid} fichier(s) chargé(s) avec succès sur ${total}`, 'success');
-                        
-                        // Pré-validation des données
-                        const validationResult = validateDataIntegrity();
-                        if (validationResult.warnings.length > 0) {
-                            showAlert(`⚠️ ${validationResult.warnings.join(', ')}`, 'info');
-                        }
-                    } else {
-                        showAlert('❌ Aucun fichier valide trouvé. Vérifiez le format JSON et la structure des données.', 'error');
-                    }
-                }
-            }
-        }
-
-        // Validation et nettoyage robuste des données
-        function validateAndCleanData(data) {
-            try {
-                if (!data || typeof data !== 'object') {
-                    return false;
-                }
-
-                // ID obligatoire
-                if (!data.id && data.id !== 0) {
-                    return false;
-                }
-
-                // Champs essentiels du baromètre
-                const essentialFields = [
-                    'profil', 'age', 'sante_physique', 'sante_psychologique', 
-                    'qvt', 'climat_social', 'sources_stress', 'charge_travail',
-                    'pression_echeances', 'reconnaissance', 'equilibre_vie'
-                ];
-
-                let hasEssentialData = false;
-                
-                essentialFields.forEach(field => {
-                    if (data[field] !== undefined && data[field] !== null && data[field] !== '') {
-                        hasEssentialData = true;
-                        
-                        // Nettoyage des données numériques
-                        if (['sante_physique', 'sante_psychologique', 'age'].includes(field)) {
-                            const num = parseFloat(data[field]);
-                            if (!isNaN(num) && num >= 0) {
-                                data[field] = num;
-                            }
-                        }
-                        
-                        // Nettoyage des chaînes
-                        if (typeof data[field] === 'string') {
-                            data[field] = data[field].trim().toLowerCase();
-                        }
-                    }
-                });
-
-                return hasEssentialData;
-            } catch (error) {
-                console.error('Erreur validation:', error);
-                return false;
-            }
-        }
-
-        // Validation de l'intégrité globale des données
-        function validateDataIntegrity() {
-            const warnings = [];
-            let totalFields = 0;
-            let missingFields = 0;
-            
-            const expectedFields = [
-                'profil', 'age', 'sante_physique', 'sante_psychologique', 
-                'qvt', 'sources_stress', 'charge_travail'
-            ];
-            
-            responses.forEach(response => {
-                expectedFields.forEach(field => {
-                    totalFields++;
-                    if (!response[field] || response[field] === '' || response[field] === null) {
-                        missingFields++;
-                    }
-                });
-            });
-            
-            const missingPercent = totalFields > 0 ? (missingFields / totalFields) * 100 : 0;
-            if (missingPercent > 20) {
-                warnings.push(`${Math.round(missingPercent)}% de données manquantes détectées`);
-            }
-            
-            return { warnings };
-        }
-
-        // Affichage des statuts de fichiers
-        function addFileStatus(fileName, status, isValid) {
-            const fileList = document.getElementById('fileList');
-            if (!fileList) return;
-            
-            const item = document.createElement('div');
-            item.className = 'file-item';
-            
-            const fileInfo = document.createElement('span');
-            fileInfo.style.fontWeight = '600';
-            fileInfo.textContent = `📄 ${fileName}`;
-            
-            const statusInfo = document.createElement('span');
-            statusInfo.style.color = isValid ? '#38a169' : '#e53e3e';
-            statusInfo.style.fontWeight = '600';
-            statusInfo.textContent = status;
-            
-            item.appendChild(fileInfo);
-            item.appendChild(statusInfo);
-            fileList.appendChild(item);
-        }
-
-        // Gestion de la barre de progression
-        function showProgressSection() {
-            const section = document.getElementById('progressSection');
-            if (section) section.style.display = 'block';
-        }
-
-        function hideProgressSection() {
-            setTimeout(() => {
-                const section = document.getElementById('progressSection');
-                if (section) section.style.display = 'none';
-            }, 1000);
-        }
-
-        // Analyse complète des données
-        function analyzeData() {
-            console.log('🔄 Début analyse avec', responses.length, 'réponses');
-            
-            if (responses.length === 0) {
-                showAlert('❌ Aucune donnée à analyser', 'error');
-                return;
-            }
-
-            // Animation du bouton
-            const btn = document.getElementById('analyzeBtn');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<span class="loading"></span> Analyse en cours...';
-            btn.disabled = true;
-
-            try {
-                setTimeout(() => {
-                    try {
-                        calculateComprehensiveStats();
-                        createAllCharts();
-                        
-                        const analysisSection = document.getElementById('analysisSection');
-                        if (analysisSection) {
-                            analysisSection.style.display = 'block';
-                            analysisSection.scrollIntoView({ behavior: 'smooth' });
-                        }
-                        
-                        btn.innerHTML = originalText;
-                        btn.disabled = false;
-                        
-                        showAlert('🎉 Analyse terminée avec succès !', 'success');
-                    } catch (error) {
-                        throw error;
-                    }
-                }, 800);
-                
-            } catch (error) {
-                console.error('❌ Erreur analyse:', error);
-                showAlert(`❌ Erreur lors de l'analyse: ${error.message}`, 'error');
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }
-        }
-
-        // Calculs statistiques complets et précis
-        function calculateComprehensiveStats() {
-            const total = responses.length;
-            
-            // Santé physique et psychologique séparées
-            let physSum = 0, physCount = 0;
-            let psychoSum = 0, psychoCount = 0;
-            
-            responses.forEach(r => {
-                if (r.sante_physique !== undefined && !isNaN(parseFloat(r.sante_physique))) {
-                    physSum += parseFloat(r.sante_physique);
-                    physCount++;
-                }
-                if (r.sante_psychologique !== undefined && !isNaN(parseFloat(r.sante_psychologique))) {
-                    psychoSum += parseFloat(r.sante_psychologique);
-                    psychoCount++;
-                }
-            });
-
-            const avgHealthPhys = physCount > 0 ? physSum / physCount : 0;
-            const avgHealthPsych = psychoCount > 0 ? psychoSum / psychoCount : 0;
-
-            // Calcul précis du stress
-            let stressCount = 0;
-            responses.forEach(r => {
-                let hasStress = false;
-                
-                if (r.sources_stress) {
-                    if (Array.isArray(r.sources_stress)) {
-                        hasStress = r.sources_stress.some(s => 
-                            s && s !== 'pas_stresse' && s !== 'aucun' && s.trim() !== ''
-                        );
-                    } else if (typeof r.sources_stress === 'string') {
-                        const stress = r.sources_stress.trim().toLowerCase();
-                        hasStress = stress !== 'pas_stresse' && stress !== 'aucun' && stress !== '';
-                    }
-                }
-                
-                if (hasStress) stressCount++;
-            });
-
-            // QVT satisfaisante (bonne + excellente)
-            let qvtGoodCount = 0;
-            responses.forEach(r => {
-                if (r.qvt === 'excellente' || r.qvt === 'bonne') {
-                    qvtGoodCount++;
-                }
-            });
-
-            // Risque de burnout (algorithme multicritères)
-            let burnoutRiskCount = 0;
-            responses.forEach(r => {
-                const lowHealthPhys = r.sante_physique && parseFloat(r.sante_physique) < 5;
-                const lowHealthPsych = r.sante_psychologique && parseFloat(r.sante_psychologique) < 5;
-                
-                let highStress = false;
-                if (r.sources_stress && Array.isArray(r.sources_stress)) {
-                    highStress = r.sources_stress.filter(s => 
-                        s && s !== 'pas_stresse' && s !== 'aucun'
-                    ).length > 2;
-                } else if (r.sources_stress && typeof r.sources_stress === 'string') {
-                    highStress = r.sources_stress !== 'pas_stresse' && r.sources_stress !== 'aucun';
-                }
-                
-                const poorQVT = ['decevante', 'mauvaise', 'nocive'].includes(r.qvt);
-                
-                // Critères de risque combinés
-                const riskFactors = [lowHealthPhys, lowHealthPsych, highStress, poorQVT].filter(Boolean).length;
-                if (riskFactors >= 2) {
-                    burnoutRiskCount++;
-                }
-            });
-
-            // Mise à jour sécurisée de l'interface
-            const updateElement = (id, value) => {
-                const element = document.getElementById(id);
-                if (element) element.textContent = value;
-            };
-
-            updateElement('totalResponses', total);
-            updateElement('avgHealthPhys', avgHealthPhys.toFixed(1));
-            updateElement('avgHealthPsych', avgHealthPsych.toFixed(1));
-            updateElement('stressCount', Math.round((stressCount / total) * 100) + '%');
-            updateElement('qvtGood', Math.round((qvtGoodCount / total) * 100) + '%');
-            updateElement('burnoutRisk', Math.round((burnoutRiskCount / total) * 100) + '%');
-
-            // Stockage pour export PDF
-            analysisData = {
-                total: total,
-                avgHealthPhys: avgHealthPhys,
-                avgHealthPsych: avgHealthPsych,
-                stressPercent: (stressCount / total) * 100,
-                qvtGoodPercent: (qvtGoodCount / total) * 100,
-                burnoutPercent: (burnoutRiskCount / total) * 100,
-                profiles: getProfileData(),
-                stress: getStressData(),
-                qvt: getQVTData(),
-                ages: getAgeData(),
-                health: {
-                    physique: avgHealthPhys,
-                    psychologique: avgHealthPsych
-                },
-                workload: getWorkloadData()
-            };
-
-            console.log('📊 Données analysées:', analysisData);
-        }
-
-        // Collecte des données par profil
-        function getProfileData() {
-            const counts = {};
-            responses.forEach(r => {
-                if (r.profil && typeof r.profil === 'string' && r.profil.trim() !== '') {
-                    const profil = r.profil.toLowerCase().trim();
-                    counts[profil] = (counts[profil] || 0) + 1;
-                }
-            });
-            return counts;
-        }
-
-        // Collecte des données de stress
-        function getStressData() {
-            const sources = {};
-            responses.forEach(r => {
-                if (r.sources_stress) {
-                    if (Array.isArray(r.sources_stress)) {
-                        r.sources_stress.forEach(s => {
-                            if (s && typeof s === 'string' && s !== 'pas_stresse' && s !== 'aucun' && s.trim() !== '') {
-                                const stress = s.toLowerCase().trim();
-                                sources[stress] = (sources[stress] || 0) + 1;
-                            }
-                        });
-                    } else if (typeof r.sources_stress === 'string') {
-                        const stress = r.sources_stress.toLowerCase().trim();
-                        if (stress !== 'pas_stresse' && stress !== 'aucun' && stress !== '') {
-                            sources[stress] = (sources[stress] || 0) + 1;
-                        }
-                    }
-                }
-            });
-            return sources;
-        }
-
-        // Collecte des données QVT
-        function getQVTData() {
-            const counts = {};
-            responses.forEach(r => {
-                if (r.qvt && typeof r.qvt === 'string' && r.qvt.trim() !== '') {
-                    const qvt = r.qvt.toLowerCase().trim();
-                    counts[qvt] = (counts[qvt] || 0) + 1;
-                }
-            });
-            return counts;
-        }
-
-        // Collecte des données d'âge
-        function getAgeData() {
-            const counts = {};
-            responses.forEach(r => {
-                if (r.age !== undefined && r.age !== null) {
-                    let ageGroup;
-                    const age = typeof r.age === 'number' ? r.age : parseInt(r.age);
-                    
-                    if (!isNaN(age) && age > 0) {
-                        if (age <= 25) ageGroup = '20-25';
-                        else if (age <= 30) ageGroup = '26-30';
-                        else if (age <= 35) ageGroup = '31-35';
-                        else if (age <= 40) ageGroup = '36-40';
-                        else if (age <= 45) ageGroup = '41-45';
-                        else if (age <= 50) ageGroup = '46-50';
-                        else ageGroup = '51+';
-                        
-                        counts[ageGroup] = (counts[ageGroup] || 0) + 1;
-                    } else if (typeof r.age === 'string' && r.age.trim() !== '') {
-                        const ageStr = r.age.toLowerCase().trim();
-                        counts[ageStr] = (counts[ageStr] || 0) + 1;
-                    }
-                }
-            });
-            return counts;
-        }
-
-        // Collecte des données de charge de travail
-        function getWorkloadData() {
-            const pressure = {};
-            const workload = {};
-            
-            responses.forEach(r => {
-                if (r.pression_echeances && typeof r.pression_echeances === 'string' && r.pression_echeances.trim() !== '') {
-                    const pression = r.pression_echeances.toLowerCase().trim();
-                    pressure[pression] = (pressure[pression] || 0) + 1;
-                }
-                
-                if (r.charge_travail && typeof r.charge_travail === 'string' && r.charge_travail.trim() !== '') {
-                    const charge = r.charge_travail.toLowerCase().trim();
-                    workload[charge] = (workload[charge] || 0) + 1;
-                }
-            });
-            
-            return { pressure, workload };
-        }
-
-        // Création de tous les graphiques avec Chart.js
-        function createAllCharts() {
-            const container = document.getElementById('chartsContainer');
-            if (!container) return;
-            
-            container.innerHTML = '';
-            
-            // Nettoyer les graphiques existants
-            Object.values(charts).forEach(chart => {
-                if (chart && typeof chart.destroy === 'function') {
-                    chart.destroy();
-                }
-            });
-            charts = {};
-
-            // Créer les graphiques si les données existent
-            if (Object.keys(analysisData.profiles).length > 0) {
-                createChart('Répartition des Profils Professionnels', 'doughnut', analysisData.profiles, 'profils');
-            }
-
-            if (Object.keys(analysisData.qvt).length > 0) {
-                createChart('Qualité de Vie au Travail', 'pie', analysisData.qvt, 'qvt');
-            }
-
-            if (Object.keys(analysisData.stress).length > 0) {
-                createChart('Sources de Stress Principales', 'bar', analysisData.stress, 'stress');
-            }
-
-            if (Object.keys(analysisData.ages).length > 0) {
-                createChart('Répartition par Tranches d\'Âge', 'bar', analysisData.ages, 'ages');
-            }
-
-            // Graphique des notes de santé
-            createHealthChart();
-
-            // Graphique de la charge de travail si disponible
-            if (analysisData.workload.pressure && Object.keys(analysisData.workload.pressure).length > 0) {
-                createChart('Pression des Échéances', 'bar', analysisData.workload.pressure, null, true);
-            }
-        }
-
-        // Création d'un graphique avec Chart.js
-        function createChart(title, type, data, labelType = null, isHorizontal = false) {
-            const container = document.getElementById('chartsContainer');
-            if (!container) return;
-            
-            const chartDiv = document.createElement('div');
-            chartDiv.className = 'chart-container';
-            
-            const titleDiv = document.createElement('div');
-            titleDiv.className = 'chart-title';
-            titleDiv.textContent = title;
-            
-            const canvas = document.createElement('canvas');
-            const chartId = 'chart_' + Date.now() + Math.random().toString(36).substr(2, 5);
-            canvas.id = chartId;
-            canvas.className = 'chart-canvas';
-            
-            chartDiv.appendChild(titleDiv);
-            chartDiv.appendChild(canvas);
-            container.appendChild(chartDiv);
-
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-
-            // Préparation des données
-            const labels = [];
-            const values = [];
-            const colors = [];
-
-            Object.entries(data)
-                .sort(([,a], [,b]) => b - a) // Tri par valeur décroissante
-                .forEach(([key, value], index) => {
-                    // Labels français si disponibles
-                    const friendlyLabel = labelType && frenchLabels[labelType] && frenchLabels[labelType][key] 
-                        ? frenchLabels[labelType][key] 
-                        : key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
-                    
-                    labels.push(friendlyLabel);
-                    values.push(value);
-                    colors.push(colorPalette[index % colorPalette.length]);
-                });
-
-            const chartData = {
-                labels: labels,
-                datasets: [{
-                    label: 'Nombre de réponses',
-                    data: values,
-                    backgroundColor: colors,
-                    borderColor: colors.map(color => color + '80'),
-                    borderWidth: 2,
-                    hoverOffset: type === 'pie' || type === 'doughnut' ? 8 : 0
-                }]
-            };
-
-            const options = {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: type === 'bar' ? 'top' : 'bottom',
-                        labels: {
-                            padding: 20,
-                            usePointStyle: true,
-                            font: {
-                                size: 12,
-                                weight: '500'
-                            },
-                            generateLabels: function(chart) {
-                                const original = Chart.defaults.plugins.legend.labels.generateLabels;
-                                const labels = original.call(this, chart);
-                                
-                                // Ajouter les pourcentages
-                                const total = chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                                labels.forEach((label, index) => {
-                                    const value = chart.data.datasets[0].data[index];
-                                    const percentage = ((value / total) * 100).toFixed(1);
-                                    label.text += ` (${percentage}%)`;
-                                });
-                                
-                                return labels;
-                            }
-                        }
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(26, 54, 93, 0.95)',
-                        titleColor: 'white',
-                        bodyColor: 'white',
-                        borderColor: '#4299e1',
-                        borderWidth: 1,
-                        cornerRadius: 8,
-                        callbacks: {
-                            label: function(context) {
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = ((context.parsed / total) * 100).toFixed(1);
-                                return `${context.label}: ${context.parsed} (${percentage}%)`;
-                            }
-                        }
-                    }
-                }
-            };
-
-            // Configuration spécifique pour les graphiques en barres
-            if (type === 'bar') {
-                options.indexAxis = isHorizontal ? 'y' : 'x';
-                options.scales = {
-                    [isHorizontal ? 'x' : 'y']: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1,
-                            font: {
-                                size: 11
-                            }
-                        },
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.1)'
-                        }
-                    },
-                    [isHorizontal ? 'y' : 'x']: {
-                        ticks: {
-                            font: {
-                                size: 11
-                            }
-                        },
-                        grid: {
-                            display: false
-                        }
-                    }
-                };
-            }
-
-            try {
-                charts[chartId] = new Chart(ctx, {
-                    type: type,
-                    data: chartData,
-                    options: options
-                });
-            } catch (error) {
-                console.error('Erreur création graphique:', error);
-            }
-        }
-
-        // Graphique spécialisé pour les notes de santé
-        function createHealthChart() {
-            const container = document.getElementById('chartsContainer');
-            if (!container) return;
-            
-            const chartDiv = document.createElement('div');
-            chartDiv.className = 'chart-container';
-            
-            const titleDiv = document.createElement('div');
-            titleDiv.className = 'chart-title';
-            titleDiv.textContent = 'Notes Moyennes de Santé';
-            
-            const canvas = document.createElement('canvas');
-            const chartId = 'health_chart_' + Date.now();
-            canvas.id = chartId;
-            canvas.className = 'chart-canvas';
-            
-            chartDiv.appendChild(titleDiv);
-            chartDiv.appendChild(canvas);
-            container.appendChild(chartDiv);
-
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-
-            const chartData = {
-                labels: ['Santé Physique', 'Santé Psychologique'],
-                datasets: [{
-                    label: 'Note moyenne (/10)',
-                    data: [analysisData.avgHealthPhys, analysisData.avgHealthPsych],
-                    backgroundColor: ['#48bb78', '#4299e1'],
-                    borderColor: ['#38a169', '#2b6cb0'],
-                    borderWidth: 2,
-                    borderRadius: 8,
-                    borderSkipped: false
-                }]
-            };
-
-            const options = {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 10,
-                        ticks: {
-                            stepSize: 1,
-                            callback: function(value) {
-                                return value + '/10';
-                            }
-                        },
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.1)'
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false
-                        }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(26, 54, 93, 0.95)',
-                        titleColor: 'white',
-                        bodyColor: 'white',
-                        callbacks: {
-                            label: function(context) {
-                                return `${context.label}: ${context.parsed.y.toFixed(1)}/10`;
-                            }
-                        }
-                    }
-                }
-            };
-
-            try {
-                charts[chartId] = new Chart(ctx, {
-                    type: 'bar',
-                    data: chartData,
-                    options: options
-                });
-            } catch (error) {
-                console.error('Erreur création graphique santé:', error);
-            }
-        }
-
-        // Export PDF professionnel et complet
-        function exportDetailedPDF() {
-            try {
-                if (typeof window.jspdf === 'undefined') {
-                    throw new Error('Bibliothèque jsPDF non chargée');
-                }
-                
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                
-                let y = 25;
-                const margin = 20;
-                const pageHeight = doc.internal.pageSize.getHeight();
-                const pageWidth = doc.internal.pageSize.getWidth();
-
-                // Fonction pour gérer les sauts de page
-                function checkNewPage(additionalHeight = 30) {
-                    if (y + additionalHeight > pageHeight - 25) {
-                        doc.addPage();
-                        y = 30;
-                        return true;
-                    }
-                    return false;
-                }
-
-                // En-tête professionnel
-                doc.setFontSize(24);
-                doc.setTextColor(30, 58, 114);
-                doc.text('BAROMÈTRE SANTÉ 2025', pageWidth / 2, y, { align: 'center' });
-                y += 15;
-                
-                doc.setFontSize(16);
-                doc.setTextColor(45, 90, 160);
-                doc.text('Cabinet Saint Germain Audit', pageWidth / 2, y, { align: 'center' });
-                y += 12;
-                
-                doc.setFontSize(12);
-                doc.setTextColor(100, 100, 100);
-                const now = new Date();
-                const dateStr = now.toLocaleDateString('fr-FR', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
-                doc.text(`Rapport généré le ${dateStr}`, pageWidth / 2, y, { align: 'center' });
-                y += 25;
-
-                // Ligne de séparation élégante
-                doc.setDrawColor(66, 153, 225);
-                doc.setLineWidth(1.5);
-                doc.line(margin, y, pageWidth - margin, y);
-                y += 25;
-
-                // Synthèse exécutive
-                checkNewPage(80);
-                doc.setFontSize(18);
-                doc.setTextColor(26, 54, 93);
-                doc.text('SYNTHESE EXECUTIVE', margin, y);
-                y += 20;
-
-                doc.setFontSize(12);
-                doc.setTextColor(60, 60, 60);
-                
-                const synthese = [
-                    `Nombre total de répondants : ${analysisData.total}`,
-                    `Note santé physique moyenne : ${analysisData.avgHealthPhys.toFixed(1)}/10`,
-                    `Note santé psychologique moyenne : ${analysisData.avgHealthPsych.toFixed(1)}/10`,
-                    `Pourcentage de collaborateurs stressés : ${Math.round(analysisData.stressPercent)}%`,
-                    `QVT jugée satisfaisante (bonne/excellente) : ${Math.round(analysisData.qvtGoodPercent)}%`,
-                    `Collaborateurs à risque de burnout : ${Math.round(analysisData.burnoutPercent)}%`
-                ];
-
-                synthese.forEach(line => {
-                    checkNewPage(10);
-                    doc.text('• ' + line, margin + 5, y);
-                    y += 8;
-                });
-
-                y += 15;
-
-                // Analyse détaillée par section
-                const sections = [
-                    { title: 'PROFILS PROFESSIONNELS', data: analysisData.profiles, labelType: 'profils' },
-                    { title: 'QUALITE DE VIE AU TRAVAIL', data: analysisData.qvt, labelType: 'qvt' },
-                    { title: 'SOURCES DE STRESS', data: analysisData.stress, labelType: 'stress' },
-                    { title: 'REPARTITION PAR AGE', data: analysisData.ages, labelType: 'ages' }
-                ];
-
-                sections.forEach(section => {
-                    if (!section.data || Object.keys(section.data).length === 0) return;
-
-                    checkNewPage(60);
-                    
-                    doc.setFontSize(16);
-                    doc.setTextColor(26, 54, 93);
-                    doc.text(section.title, margin, y);
-                    y += 15;
-
-                    doc.setFontSize(11);
-                    doc.setTextColor(60, 60, 60);
-
-                    const total = Object.values(section.data).reduce((sum, val) => sum + val, 0);
-
-                    Object.entries(section.data)
-                        .sort(([,a], [,b]) => b - a) // Tri décroissant
-                        .forEach(([key, count]) => {
-                            const percent = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0';
-                            const label = section.labelType && frenchLabels[section.labelType] && frenchLabels[section.labelType][key] 
-                                ? frenchLabels[section.labelType][key] 
-                                : key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
-                            
-                            checkNewPage(8);
-                            doc.text(`• ${label} : ${count} réponse${count > 1 ? 's' : ''} (${percent}%)`, margin + 5, y);
-                            y += 7;
-                        });
-
-                    y += 12;
-                });
-
-                // Section santé détaillée
-                checkNewPage(50);
-                doc.setFontSize(16);
-                doc.setTextColor(26, 54, 93);
-                doc.text('ANALYSE SANTE DETAILLEE', margin, y);
-                y += 15;
-
-                doc.setFontSize(11);
-                doc.setTextColor(60, 60, 60);
-
-                const healthAnalysis = [
-                    `Santé physique : ${analysisData.avgHealthPhys.toFixed(1)}/10 ${getHealthStatus(analysisData.avgHealthPhys)}`,
-                    `Santé psychologique : ${analysisData.avgHealthPsych.toFixed(1)}/10 ${getHealthStatus(analysisData.avgHealthPsych)}`,
-                    `Écart santé physique/psychologique : ${Math.abs(analysisData.avgHealthPhys - analysisData.avgHealthPsych).toFixed(1)} points`,
-                    `Pourcentage de collaborateurs en situation de stress : ${Math.round(analysisData.stressPercent)}%`,
-                    `Estimation du risque de burnout : ${Math.round(analysisData.burnoutPercent)}% ${getBurnoutRiskLevel(analysisData.burnoutPercent)}`
-                ];
-
-                healthAnalysis.forEach(line => {
-                    checkNewPage(10);
-                    doc.text('• ' + line, margin + 5, y);
-                    y += 8;
-                });
-
-                y += 15;
-
-                // Recommandations stratégiques
-                checkNewPage(100);
-                doc.setFontSize(16);
-                doc.setTextColor(26, 54, 93);
-                doc.text('💡 RECOMMANDATIONS STRATÉGIQUES', margin, y);
-                y += 15;
-
-                doc.setFontSize(11);
-                doc.setTextColor(60, 60, 60);
-
-                const recommendations = generateDetailedRecommendations();
-                recommendations.forEach((rec, index) => {
-                    checkNewPage(20);
-                    
-                    // Titre de la recommandation
-                    doc.setFont(undefined, 'bold');
-                    doc.text(`${index + 1}. ${rec.title}`, margin + 5, y);
-                    y += 8;
-                    
-                    // Description
-                    doc.setFont(undefined, 'normal');
-                    const lines = doc.splitTextToSize(rec.description, pageWidth - 2 * margin - 10);
-                    lines.forEach(line => {
-                        checkNewPage(8);
-                        doc.text(line, margin + 10, y);
-                        y += 6;
-                    });
-                    y += 5;
-                });
-
-                // Plan d'action
-                checkNewPage(60);
-                doc.setFontSize(16);
-                doc.setTextColor(26, 54, 93);
-                doc.text('🎯 PLAN D\'ACTION RECOMMANDÉ', margin, y);
-                y += 15;
-
-                doc.setFontSize(11);
-                doc.setTextColor(60, 60, 60);
-
-                const actionPlan = generateActionPlan();
-                actionPlan.forEach((action, index) => {
-                    checkNewPage(25);
-                    
-                    doc.setFont(undefined, 'bold');
-                    doc.text(`${action.priority} - ${action.title}`, margin + 5, y);
-                    y += 8;
-                    
-                    doc.setFont(undefined, 'normal');
-                    doc.text(`Délai : ${action.timeline}`, margin + 10, y);
-                    y += 6;
-                    
-                    const descLines = doc.splitTextToSize(action.description, pageWidth - 2 * margin - 10);
-                    descLines.forEach(line => {
-                        checkNewPage(6);
-                        doc.text(line, margin + 10, y);
-                        y += 6;
-                    });
-                    y += 8;
-                });
-
-                // Pied de page sur toutes les pages
-                const totalPages = doc.internal.getNumberOfPages();
-                for (let i = 1; i <= totalPages; i++) {
-                    doc.setPage(i);
-                    doc.setFontSize(9);
-                    doc.setTextColor(120, 120, 120);
-                    
-                    // Pied de page gauche
-                    doc.text(
-                        'Cabinet Saint Germain Audit - Confidentiel',
-                        margin,
-                        pageHeight - 15
-                    );
-                    
-                    // Pied de page centre
-                    doc.text(
-                        `Baromètre Santé 2025`,
-                        pageWidth / 2,
-                        pageHeight - 15,
-                        { align: 'center' }
-                    );
-                    
-                    // Pied de page droite
-                    doc.text(
-                        `Page ${i}/${totalPages}`,
-                        pageWidth - margin,
-                        pageHeight - 15,
-                        { align: 'right' }
-                    );
-                }
-
-                // Sauvegarde avec nom intelligent
-                const timestamp = now.toISOString().slice(0, 10).replace(/-/g, '');
-                const fileName = `Barometre_Sante_2025_${timestamp}_${analysisData.total}repondants.pdf`;
-                
-                doc.save(fileName);
-                
-                showAlert(`📄 Rapport PDF généré avec succès : ${fileName}`, 'success');
-                
-            } catch (error) {
-                console.error('❌ Erreur génération PDF:', error);
-                showAlert(`❌ Erreur lors de la génération du PDF : ${error.message}`, 'error');
-            }
-        }
-
-        // Fonctions utilitaires pour le PDF
-        function getHealthStatus(score) {
-            if (score >= 8) return '(Excellente)';
-            if (score >= 7) return '(Très bonne)';
-            if (score >= 6) return '(Bonne)';
-            if (score >= 5) return '(Correcte)';
-            if (score >= 4) return '(Préoccupante)';
-            return '(Critique)';
-        }
-
-        function getBurnoutRiskLevel(percent) {
-            if (percent < 10) return '(Risque faible)';
-            if (percent < 20) return '(Risque modéré)';
-            if (percent < 30) return '(Risque élevé)';
-            return '(Risque critique)';
-        }
-
-        // Génération des recommandations détaillées
-        function generateDetailedRecommendations() {
-            const recommendations = [];
-
-            // Recommandations santé physique
-            if (analysisData.avgHealthPhys < 6) {
-                recommendations.push({
-                    title: 'Amélioration de la santé physique',
-                    description: 'Mettre en place un programme d\'ergonomie au poste de travail, organiser des sessions d\'activité physique adaptée et sensibiliser aux bonnes pratiques de santé au travail. Considérer l\'aménagement des espaces de travail pour favoriser le bien-être physique.'
-                });
-            }
-
-            // Recommandations santé psychologique
-            if (analysisData.avgHealthPsych < 6) {
-                recommendations.push({
-                    title: 'Soutien à la santé psychologique',
-                    description: 'Développer un programme d\'accompagnement psychologique avec des professionnels qualifiés. Organiser des ateliers de gestion du stress et de prévention des risques psychosociaux. Mettre en place une cellule d\'écoute et de soutien.'
-                });
-            }
-
-            // Recommandations gestion du stress
-            if (analysisData.stressPercent > 50) {
-                recommendations.push({
-                    title: 'Réduction des sources de stress',
-                    description: 'Identifier et traiter les causes principales de stress organisationnel. Réviser la répartition des charges de travail, améliorer les processus de communication interne et renforcer l\'autonomie des collaborateurs dans leurs missions.'
-                });
-            }
-
-            // Recommandations QVT
-            if (analysisData.qvtGoodPercent < 60) {
-                recommendations.push({
-                    title: 'Amélioration de la qualité de vie au travail',
-                    description: 'Développer un plan d\'amélioration de la QVT en concertation avec les équipes. Focus sur l\'équilibre vie professionnelle/personnelle, la reconnaissance du travail accompli et l\'amélioration de l\'environnement de travail.'
-                });
-            }
-
-            // Recommandations burnout
-            if (analysisData.burnoutPercent > 15) {
-                recommendations.push({
-                    title: 'Prévention du burnout',
-                    description: 'Mise en place urgente d\'un dispositif de prévention et de détection précoce du burnout. Formation des managers à la détection des signaux d\'alerte et création d\'un protocole d\'intervention rapide.'
-                });
-            }
-
-            // Recommandations générales
-            recommendations.push({
-                title: 'Communication et dialogue social',
-                description: 'Renforcer le dialogue social par des réunions d\'équipe régulières, la mise en place d\'un système de feedback continu et l\'amélioration de la communication descendante et ascendante.'
-            });
-
-            return recommendations;
-        }
-
-        // Génération du plan d'action
-        function generateActionPlan() {
-            const actions = [];
-            
-            // Actions prioritaires basées sur l'analyse
-            if (analysisData.burnoutPercent > 20) {
-                actions.push({
-                    priority: 'URGENT',
-                    title: 'Dispositif de prévention burnout',
-                    timeline: 'Sous 30 jours',
-                    description: 'Formation managers, cellule d\'écoute, protocole d\'intervention'
-                });
-            }
-            
-            if (analysisData.avgHealthPsych < 5) {
-                actions.push({
-                    priority: 'PRIORITÉ 1',
-                    title: 'Programme de soutien psychologique',
-                    timeline: '1-2 mois',
-                    description: 'Partenariat avec professionnels, ateliers de gestion du stress'
-                });
-            }
-            
-            actions.push({
-                priority: 'PRIORITÉ 2',
-                title: 'Analyse approfondie des sources de stress',
-                timeline: '2-3 mois',
-                description: 'Audit organisationnel, enquête qualitative complémentaire'
-            });
-            
-            actions.push({
-                priority: 'PRIORITÉ 3',
-                title: 'Plan d\'amélioration QVT',
-                timeline: '3-6 mois',
-                description: 'Co-construction avec les équipes, mise en œuvre progressive'
-            });
-            
-            actions.push({
-                priority: 'SUIVI',
-                title: 'Réévaluation du baromètre',
-                timeline: '6 mois',
-                description: 'Nouvelle enquête pour mesurer l\'impact des actions mises en place'
-            });
-
-            return actions;
-        }
-
-        // Effacement complet et sécurisé
-        function clearAll() {
-            try {
-                // Réinitialisation des données
-                responses = [];
-                analysisData = {};
-                
-                // Nettoyage de l'interface
-                const elements = {
-                    fileList: 'none',
-                    analysisSection: 'none',
-                    progressSection: 'none'
-                };
-                
-                Object.entries(elements).forEach(([id, display]) => {
-                    const element = document.getElementById(id);
-                    if (element) element.style.display = display;
-                });
-                
-                // Réinitialisation des contrôles
-                const analyzeBtn = document.getElementById('analyzeBtn');
-                if (analyzeBtn) analyzeBtn.disabled = true;
-                
-                const fileInput = document.getElementById('fileInput');
-                if (fileInput) fileInput.value = '';
-                
-                // Nettoyage des alertes et graphiques
-                const alerts = document.getElementById('alerts');
-                if (alerts) alerts.innerHTML = '';
-                
-                const chartsContainer = document.getElementById('chartsContainer');
-                if (chartsContainer) chartsContainer.innerHTML = '';
-                
-                // Destruction des graphiques
-                Object.values(charts).forEach(chart => {
-                    if (chart && typeof chart.destroy === 'function') {
-                        chart.destroy();
-                    }
-                });
-                charts = {};
-                
-                // Réinitialisation des statistiques
-                const stats = ['totalResponses', 'avgHealthPhys', 'avgHealthPsych', 'stressCount', 'qvtGood', 'burnoutRisk'];
-                stats.forEach(statId => {
-                    const element = document.getElementById(statId);
-                    if (element) {
-                        element.textContent = statId.includes('Count') || statId.includes('Good') || statId.includes('Risk') ? '0%' : '0';
-                    }
-                });
-                
-                showAlert('🗑️ Toutes les données ont été effacées avec succès', 'info');
-                
-            } catch (error) {
-                console.error('Erreur lors du nettoyage:', error);
-                showAlert('Erreur lors de l\'effacement des données', 'error');
-            }
-        }
-
-        // Système d'alertes amélioré
-        function showAlert(message, type) {
-            const container = document.getElementById('alerts');
-            if (!container) return;
-            
-            const alert = document.createElement('div');
-            alert.className = `alert alert-${type}`;
-            alert.textContent = message;
-            
-            // Animation d'apparition
-            alert.style.opacity = '0';
-            alert.style.transform = 'translateY(-10px)';
-            container.appendChild(alert);
-            
-            // Transition fluide
-            setTimeout(() => {
-                alert.style.opacity = '1';
-                alert.style.transform = 'translateY(0)';
-            }, 100);
-            
-            // Auto-suppression avec animation
-            setTimeout(() => {
-                if (alert.parentNode) {
-                    alert.style.opacity = '0';
-                    alert.style.transform = 'translateY(-10px)';
-                    setTimeout(() => {
-                        if (alert.parentNode) {
-                            alert.remove();
-                        }
-                    }, 300);
-                }
-            }, 5000);
-        }
-
-        // Log de confirmation du chargement
-        console.log('✅ Baromètre Santé 2025 - Application entièrement chargée et fonctionnelle');
-        console.log('🔧 Version: Production Ready');
-        console.log('📊 Features: Upload, Analyse, Charts, PDF Export');
-    </script>
-</body>
-</html>
+                if (!file
