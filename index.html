@@ -77,8 +77,6 @@
             cursor: pointer;
             transition: all 0.4s ease;
             background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
-            position: relative;
-            overflow: hidden;
         }
         
         .upload-zone:hover { 
@@ -225,7 +223,7 @@
         
         .charts-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
             gap: 35px;
             margin-bottom: 50px;
         }
@@ -236,6 +234,7 @@
             border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             transition: transform 0.3s ease;
+            height: 450px;
         }
         
         .chart-container:hover {
@@ -262,6 +261,10 @@
             width: 60px;
             height: 3px;
             background: linear-gradient(90deg, #4299e1, #2b6cb0);
+        }
+        
+        .chart-canvas {
+            height: 350px !important;
         }
         
         .file-list { 
@@ -292,6 +295,7 @@
             font-weight: 500;
             font-size: 1rem;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
         }
         
         .alert-success { 
@@ -329,9 +333,9 @@
         
         .progress-bar {
             width: 100%;
-            height: 6px;
+            height: 8px;
             background: #e2e8f0;
-            border-radius: 3px;
+            border-radius: 4px;
             overflow: hidden;
             margin: 15px 0;
         }
@@ -340,7 +344,7 @@
             height: 100%;
             background: linear-gradient(90deg, #4299e1, #2b6cb0);
             transition: width 0.3s ease;
-            border-radius: 3px;
+            border-radius: 4px;
         }
         
         @media (max-width: 768px) {
@@ -356,6 +360,12 @@
             .btn {
                 padding: 14px 24px;
                 font-size: 1rem;
+            }
+            .chart-container {
+                height: 400px;
+            }
+            .chart-canvas {
+                height: 300px !important;
             }
         }
     </style>
@@ -387,7 +397,7 @@
             
             <div style="text-align: center; margin-top: 30px;">
                 <button id="analyzeBtn" class="btn" disabled onclick="analyzeData()">
-                    <span id="analyzeText">🔍 Analyser les données</span>
+                    🔍 Analyser les données
                 </button>
                 <button class="btn btn-danger" onclick="clearAll()">
                     🗑️ Tout effacer
@@ -443,16 +453,16 @@
         let charts = {};
         let analysisData = {};
 
-        // Configuration des couleurs professionnelles
-        const colorPalette = {
-            primary: ['#1e3c72', '#2a5298', '#4299e1', '#63b3ed', '#90cdf4'],
-            success: ['#38a169', '#48bb78', '#68d391', '#9ae6b4', '#c6f6d5'],
-            warning: ['#d69e2e', '#ed8936', '#f6ad55', '#fbb6ce', '#fed7d7'],
-            danger: ['#e53e3e', '#f56565', '#fc8181', '#feb2b2', '#fed7d7'],
-            neutral: ['#2d3748', '#4a5568', '#718096', '#a0aec0', '#cbd5e0']
-        };
+        // Palette de couleurs étendue et professionnelle
+        const colorPalette = [
+            '#1e3c72', '#2a5298', '#4299e1', '#63b3ed', '#90cdf4',
+            '#38a169', '#48bb78', '#68d391', '#9ae6b4', '#c6f6d5',
+            '#d69e2e', '#ed8936', '#f6ad55', '#fbb6ce', '#fed7d7',
+            '#e53e3e', '#f56565', '#fc8181', '#feb2b2', '#fed7d7',
+            '#2d3748', '#4a5568', '#718096', '#a0aec0', '#cbd5e0'
+        ];
 
-        // Labels français pour les graphiques
+        // Labels français pour une interface professionnelle
         const frenchLabels = {
             profils: {
                 'auditeur': 'Auditeur/Auditrice',
@@ -493,55 +503,88 @@
             }
         };
 
-        // Initialisation au chargement de la page
+        // Initialisation sécurisée
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 Application Baromètre Santé chargée');
+            console.log('🚀 Baromètre Santé 2025 - Application chargée');
             
-            const fileInput = document.getElementById('fileInput');
-            if (fileInput) {
-                fileInput.addEventListener('change', handleFileSelect);
-            }
+            try {
+                // Vérification des éléments critiques
+                const requiredElements = ['fileInput', 'analyzeBtn', 'alerts', 'chartsContainer'];
+                const missingElements = requiredElements.filter(id => !document.getElementById(id));
+                
+                if (missingElements.length > 0) {
+                    console.error('❌ Éléments manquants:', missingElements);
+                    return;
+                }
+                
+                // Événements de fichier
+                const fileInput = document.getElementById('fileInput');
+                if (fileInput) {
+                    fileInput.addEventListener('change', handleFileSelect);
+                }
 
-            // Support du drag & drop
-            const uploadZone = document.querySelector('.upload-zone');
-            if (uploadZone) {
-                uploadZone.addEventListener('dragover', handleDragOver);
-                uploadZone.addEventListener('drop', handleDrop);
-                uploadZone.addEventListener('dragleave', handleDragLeave);
+                // Support drag & drop
+                const uploadZone = document.querySelector('.upload-zone');
+                if (uploadZone) {
+                    uploadZone.addEventListener('dragover', handleDragOver);
+                    uploadZone.addEventListener('drop', handleDrop);
+                    uploadZone.addEventListener('dragleave', handleDragLeave);
+                }
+                
+                console.log('✅ Initialisation terminée avec succès');
+            } catch (error) {
+                console.error('❌ Erreur lors de l\'initialisation:', error);
+                showAlert('Erreur lors de l\'initialisation de l\'application', 'error');
             }
         });
 
-        // Gestion du drag & drop
+        // Gestion sécurisée du drag & drop
         function handleDragOver(event) {
             event.preventDefault();
+            event.stopPropagation();
             event.currentTarget.style.borderColor = '#2b6cb0';
             event.currentTarget.style.backgroundColor = '#e6fffa';
         }
 
         function handleDragLeave(event) {
+            event.preventDefault();
+            event.stopPropagation();
             event.currentTarget.style.borderColor = '#4299e1';
             event.currentTarget.style.backgroundColor = '';
         }
 
         function handleDrop(event) {
             event.preventDefault();
+            event.stopPropagation();
             handleDragLeave(event);
+            
             const files = event.dataTransfer.files;
-            handleFiles(files);
+            if (files.length > 0) {
+                handleFiles(files);
+            }
         }
 
         // Gestion de la sélection de fichiers
         function handleFileSelect(event) {
-            console.log('📁 Fichiers sélectionnés:', event.target.files.length);
-            handleFiles(event.target.files);
+            const files = event.target.files;
+            console.log('📁 Fichiers sélectionnés:', files.length);
+            
+            if (files.length > 0) {
+                handleFiles(files);
+            }
         }
 
-        // Traitement des fichiers
+        // Traitement robuste des fichiers
         function handleFiles(files) {
-            if (files.length === 0) return;
+            if (!files || files.length === 0) {
+                showAlert('Aucun fichier sélectionné', 'error');
+                return;
+            }
             
+            // Réinitialisation
             responses = [];
             showProgressSection();
+            
             const fileList = document.getElementById('fileList');
             fileList.innerHTML = '<h3 style="color: #2d3748; margin-bottom: 20px;">📋 Traitement des fichiers...</h3>';
             fileList.style.display = 'block';
@@ -550,8 +593,9 @@
             let valid = 0;
             const total = files.length;
 
+            // Traitement asynchrone de chaque fichier
             Array.from(files).forEach((file, index) => {
-                console.log(`📄 Traitement fichier ${index + 1}/${total}:`, file.name);
+                console.log(`📄 Traitement fichier ${index + 1}/${total}: ${file.name}`);
 
                 if (!file.name.toLowerCase().endsWith('.json')) {
                     addFileStatus(file.name, 'Format non supporté (.json requis)', false);
@@ -562,10 +606,16 @@
                 }
 
                 const reader = new FileReader();
+                
                 reader.onload = function(e) {
                     try {
-                        const data = JSON.parse(e.target.result);
-                        console.log('✅ JSON parsé pour', file.name);
+                        const rawData = e.target.result;
+                        if (!rawData || rawData.trim() === '') {
+                            throw new Error('Fichier vide');
+                        }
+                        
+                        const data = JSON.parse(rawData);
+                        console.log(`✅ JSON parsé pour ${file.name}`);
                         
                         if (validateAndCleanData(data)) {
                             responses.push(data);
@@ -575,16 +625,17 @@
                             addFileStatus(file.name, '❌ Structure de données invalide', false);
                         }
                     } catch (error) {
-                        console.error('❌ Erreur JSON pour', file.name, error);
-                        addFileStatus(file.name, '❌ Fichier JSON corrompu', false);
+                        console.error(`❌ Erreur pour ${file.name}:`, error);
+                        addFileStatus(file.name, `❌ Erreur: ${error.message}`, false);
                     }
+                    
                     processed++;
                     updateProgress(processed, total);
                     checkComplete();
                 };
                 
                 reader.onerror = function() {
-                    addFileStatus(file.name, '❌ Erreur de lecture', false);
+                    addFileStatus(file.name, '❌ Erreur de lecture du fichier', false);
                     processed++;
                     updateProgress(processed, total);
                     checkComplete();
@@ -594,16 +645,20 @@
             });
 
             function updateProgress(current, total) {
-                const percent = (current / total) * 100;
-                document.getElementById('progressFill').style.width = percent + '%';
-                document.getElementById('progressText').textContent = 
-                    `Traitement ${current}/${total} fichiers (${Math.round(percent)}%)`;
+                const percent = Math.round((current / total) * 100);
+                const progressFill = document.getElementById('progressFill');
+                const progressText = document.getElementById('progressText');
+                
+                if (progressFill && progressText) {
+                    progressFill.style.width = percent + '%';
+                    progressText.textContent = `Traitement ${current}/${total} fichiers (${percent}%)`;
+                }
             }
 
             function checkComplete() {
                 if (processed === total) {
                     hideProgressSection();
-                    console.log('✅ Traitement terminé. Fichiers valides:', valid, '/', total);
+                    console.log(`✅ Traitement terminé. Fichiers valides: ${valid}/${total}`);
                     
                     if (valid > 0) {
                         document.getElementById('analyzeBtn').disabled = false;
@@ -612,7 +667,7 @@
                         // Pré-validation des données
                         const validationResult = validateDataIntegrity();
                         if (validationResult.warnings.length > 0) {
-                            showAlert('⚠️ ' + validationResult.warnings.join(', '), 'info');
+                            showAlert(`⚠️ ${validationResult.warnings.join(', ')}`, 'info');
                         }
                     } else {
                         showAlert('❌ Aucun fichier valide trouvé. Vérifiez le format JSON et la structure des données.', 'error');
@@ -621,48 +676,54 @@
             }
         }
 
-        // Validation et nettoyage des données
+        // Validation et nettoyage robuste des données
         function validateAndCleanData(data) {
-            if (!data || typeof data !== 'object') {
-                return false;
-            }
+            try {
+                if (!data || typeof data !== 'object') {
+                    return false;
+                }
 
-            // L'ID est obligatoire
-            if (!data.id) {
-                return false;
-            }
+                // ID obligatoire
+                if (!data.id && data.id !== 0) {
+                    return false;
+                }
 
-            // Nettoyage et validation des champs essentiels
-            const essentialFields = [
-                'profil', 'age', 'sante_physique', 'sante_psychologique', 
-                'qvt', 'climat_social', 'sources_stress', 'charge_travail',
-                'pression_echeances', 'reconnaissance', 'equilibre_vie'
-            ];
+                // Champs essentiels du baromètre
+                const essentialFields = [
+                    'profil', 'age', 'sante_physique', 'sante_psychologique', 
+                    'qvt', 'climat_social', 'sources_stress', 'charge_travail',
+                    'pression_echeances', 'reconnaissance', 'equilibre_vie'
+                ];
 
-            let hasEssentialData = false;
-            essentialFields.forEach(field => {
-                if (data[field] !== undefined && data[field] !== null && data[field] !== '') {
-                    hasEssentialData = true;
-                    
-                    // Nettoyage des données numériques
-                    if (['sante_physique', 'sante_psychologique', 'age'].includes(field)) {
-                        const num = parseFloat(data[field]);
-                        if (!isNaN(num)) {
-                            data[field] = num;
+                let hasEssentialData = false;
+                
+                essentialFields.forEach(field => {
+                    if (data[field] !== undefined && data[field] !== null && data[field] !== '') {
+                        hasEssentialData = true;
+                        
+                        // Nettoyage des données numériques
+                        if (['sante_physique', 'sante_psychologique', 'age'].includes(field)) {
+                            const num = parseFloat(data[field]);
+                            if (!isNaN(num) && num >= 0) {
+                                data[field] = num;
+                            }
+                        }
+                        
+                        // Nettoyage des chaînes
+                        if (typeof data[field] === 'string') {
+                            data[field] = data[field].trim().toLowerCase();
                         }
                     }
-                    
-                    // Nettoyage des chaînes
-                    if (typeof data[field] === 'string') {
-                        data[field] = data[field].trim().toLowerCase();
-                    }
-                }
-            });
+                });
 
-            return hasEssentialData;
+                return hasEssentialData;
+            } catch (error) {
+                console.error('Erreur validation:', error);
+                return false;
+            }
         }
 
-        // Validation de l'intégrité des données
+        // Validation de l'intégrité globale des données
         function validateDataIntegrity() {
             const warnings = [];
             let totalFields = 0;
@@ -676,13 +737,13 @@
             responses.forEach(response => {
                 expectedFields.forEach(field => {
                     totalFields++;
-                    if (!response[field] || response[field] === '') {
+                    if (!response[field] || response[field] === '' || response[field] === null) {
                         missingFields++;
                     }
                 });
             });
             
-            const missingPercent = (missingFields / totalFields) * 100;
+            const missingPercent = totalFields > 0 ? (missingFields / totalFields) * 100 : 0;
             if (missingPercent > 20) {
                 warnings.push(`${Math.round(missingPercent)}% de données manquantes détectées`);
             }
@@ -690,9 +751,11 @@
             return { warnings };
         }
 
-        // Ajout du statut des fichiers
+        // Affichage des statuts de fichiers
         function addFileStatus(fileName, status, isValid) {
             const fileList = document.getElementById('fileList');
+            if (!fileList) return;
+            
             const item = document.createElement('div');
             item.className = 'file-item';
             
@@ -712,16 +775,18 @@
 
         // Gestion de la barre de progression
         function showProgressSection() {
-            document.getElementById('progressSection').style.display = 'block';
+            const section = document.getElementById('progressSection');
+            if (section) section.style.display = 'block';
         }
 
         function hideProgressSection() {
             setTimeout(() => {
-                document.getElementById('progressSection').style.display = 'none';
+                const section = document.getElementById('progressSection');
+                if (section) section.style.display = 'none';
             }, 1000);
         }
 
-        // Analyse des données
+        // Analyse complète des données
         function analyzeData() {
             console.log('🔄 Début analyse avec', responses.length, 'réponses');
             
@@ -737,28 +802,35 @@
             btn.disabled = true;
 
             try {
-                // Délai pour l'animation
                 setTimeout(() => {
-                    calculateComprehensiveStats();
-                    createAllCharts();
-                    document.getElementById('analysisSection').style.display = 'block';
-                    document.getElementById('analysisSection').scrollIntoView({ behavior: 'smooth' });
-                    
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                    
-                    showAlert('🎉 Analyse terminée avec succès !', 'success');
-                }, 500);
+                    try {
+                        calculateComprehensiveStats();
+                        createAllCharts();
+                        
+                        const analysisSection = document.getElementById('analysisSection');
+                        if (analysisSection) {
+                            analysisSection.style.display = 'block';
+                            analysisSection.scrollIntoView({ behavior: 'smooth' });
+                        }
+                        
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        
+                        showAlert('🎉 Analyse terminée avec succès !', 'success');
+                    } catch (error) {
+                        throw error;
+                    }
+                }, 800);
                 
             } catch (error) {
                 console.error('❌ Erreur analyse:', error);
-                showAlert('❌ Erreur lors de l\'analyse: ' + error.message, 'error');
+                showAlert(`❌ Erreur lors de l'analyse: ${error.message}`, 'error');
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }
         }
 
-        // Calcul des statistiques complètes
+        // Calculs statistiques complets et précis
         function calculateComprehensiveStats() {
             const total = responses.length;
             
@@ -767,11 +839,11 @@
             let psychoSum = 0, psychoCount = 0;
             
             responses.forEach(r => {
-                if (r.sante_physique && !isNaN(r.sante_physique)) {
+                if (r.sante_physique !== undefined && !isNaN(parseFloat(r.sante_physique))) {
                     physSum += parseFloat(r.sante_physique);
                     physCount++;
                 }
-                if (r.sante_psychologique && !isNaN(r.sante_psychologique)) {
+                if (r.sante_psychologique !== undefined && !isNaN(parseFloat(r.sante_psychologique))) {
                     psychoSum += parseFloat(r.sante_psychologique);
                     psychoCount++;
                 }
@@ -780,20 +852,23 @@
             const avgHealthPhys = physCount > 0 ? physSum / physCount : 0;
             const avgHealthPsych = psychoCount > 0 ? psychoSum / psychoCount : 0;
 
-            // Calcul du stress
+            // Calcul précis du stress
             let stressCount = 0;
             responses.forEach(r => {
+                let hasStress = false;
+                
                 if (r.sources_stress) {
                     if (Array.isArray(r.sources_stress)) {
-                        const hasStress = r.sources_stress.some(s => s !== 'pas_stresse' && s !== 'aucun' && s !== '');
-                        if (hasStress && r.sources_stress.length > 0) stressCount++;
-                    } else if (typeof r.sources_stress === 'string' && 
-                              r.sources_stress !== 'pas_stresse' && 
-                              r.sources_stress !== 'aucun' && 
-                              r.sources_stress !== '') {
-                        stressCount++;
+                        hasStress = r.sources_stress.some(s => 
+                            s && s !== 'pas_stresse' && s !== 'aucun' && s.trim() !== ''
+                        );
+                    } else if (typeof r.sources_stress === 'string') {
+                        const stress = r.sources_stress.trim().toLowerCase();
+                        hasStress = stress !== 'pas_stresse' && stress !== 'aucun' && stress !== '';
                     }
                 }
+                
+                if (hasStress) stressCount++;
             });
 
             // QVT satisfaisante (bonne + excellente)
@@ -804,30 +879,44 @@
                 }
             });
 
-            // Risque de burnout (combinaison de facteurs)
+            // Risque de burnout (algorithme multicritères)
             let burnoutRiskCount = 0;
             responses.forEach(r => {
-                const lowHealth = (r.sante_psychologique && parseFloat(r.sante_psychologique) < 5);
-                const highStress = r.sources_stress && (
-                    Array.isArray(r.sources_stress) ? r.sources_stress.length > 2 : 
-                    (r.sources_stress !== 'pas_stresse' && r.sources_stress !== 'aucun')
-                );
-                const poorQVT = r.qvt === 'decevante' || r.qvt === 'mauvaise' || r.qvt === 'nocive';
+                const lowHealthPhys = r.sante_physique && parseFloat(r.sante_physique) < 5;
+                const lowHealthPsych = r.sante_psychologique && parseFloat(r.sante_psychologique) < 5;
                 
-                if ((lowHealth && highStress) || (lowHealth && poorQVT) || (highStress && poorQVT)) {
+                let highStress = false;
+                if (r.sources_stress && Array.isArray(r.sources_stress)) {
+                    highStress = r.sources_stress.filter(s => 
+                        s && s !== 'pas_stresse' && s !== 'aucun'
+                    ).length > 2;
+                } else if (r.sources_stress && typeof r.sources_stress === 'string') {
+                    highStress = r.sources_stress !== 'pas_stresse' && r.sources_stress !== 'aucun';
+                }
+                
+                const poorQVT = ['decevante', 'mauvaise', 'nocive'].includes(r.qvt);
+                
+                // Critères de risque combinés
+                const riskFactors = [lowHealthPhys, lowHealthPsych, highStress, poorQVT].filter(Boolean).length;
+                if (riskFactors >= 2) {
                     burnoutRiskCount++;
                 }
             });
 
-            // Mise à jour de l'interface
-            document.getElementById('totalResponses').textContent = total;
-            document.getElementById('avgHealthPhys').textContent = avgHealthPhys.toFixed(1);
-            document.getElementById('avgHealthPsych').textContent = avgHealthPsych.toFixed(1);
-            document.getElementById('stressCount').textContent = Math.round((stressCount / total) * 100) + '%';
-            document.getElementById('qvtGood').textContent = Math.round((qvtGoodCount / total) * 100) + '%';
-            document.getElementById('burnoutRisk').textContent = Math.round((burnoutRiskCount / total) * 100) + '%';
+            // Mise à jour sécurisée de l'interface
+            const updateElement = (id, value) => {
+                const element = document.getElementById(id);
+                if (element) element.textContent = value;
+            };
 
-            // Stockage des données pour l'export PDF
+            updateElement('totalResponses', total);
+            updateElement('avgHealthPhys', avgHealthPhys.toFixed(1));
+            updateElement('avgHealthPsych', avgHealthPsych.toFixed(1));
+            updateElement('stressCount', Math.round((stressCount / total) * 100) + '%');
+            updateElement('qvtGood', Math.round((qvtGoodCount / total) * 100) + '%');
+            updateElement('burnoutRisk', Math.round((burnoutRiskCount / total) * 100) + '%');
+
+            // Stockage pour export PDF
             analysisData = {
                 total: total,
                 avgHealthPhys: avgHealthPhys,
@@ -853,7 +942,7 @@
         function getProfileData() {
             const counts = {};
             responses.forEach(r => {
-                if (r.profil && r.profil !== '') {
+                if (r.profil && typeof r.profil === 'string' && r.profil.trim() !== '') {
                     const profil = r.profil.toLowerCase().trim();
                     counts[profil] = (counts[profil] || 0) + 1;
                 }
@@ -868,17 +957,16 @@
                 if (r.sources_stress) {
                     if (Array.isArray(r.sources_stress)) {
                         r.sources_stress.forEach(s => {
-                            if (s && s !== 'pas_stresse' && s !== 'aucun' && s !== '') {
+                            if (s && typeof s === 'string' && s !== 'pas_stresse' && s !== 'aucun' && s.trim() !== '') {
                                 const stress = s.toLowerCase().trim();
                                 sources[stress] = (sources[stress] || 0) + 1;
                             }
                         });
-                    } else if (typeof r.sources_stress === 'string' && 
-                              r.sources_stress !== 'pas_stresse' && 
-                              r.sources_stress !== 'aucun' && 
-                              r.sources_stress !== '') {
+                    } else if (typeof r.sources_stress === 'string') {
                         const stress = r.sources_stress.toLowerCase().trim();
-                        sources[stress] = (sources[stress] || 0) + 1;
+                        if (stress !== 'pas_stresse' && stress !== 'aucun' && stress !== '') {
+                            sources[stress] = (sources[stress] || 0) + 1;
+                        }
                     }
                 }
             });
@@ -889,7 +977,7 @@
         function getQVTData() {
             const counts = {};
             responses.forEach(r => {
-                if (r.qvt && r.qvt !== '') {
+                if (r.qvt && typeof r.qvt === 'string' && r.qvt.trim() !== '') {
                     const qvt = r.qvt.toLowerCase().trim();
                     counts[qvt] = (counts[qvt] || 0) + 1;
                 }
@@ -901,11 +989,11 @@
         function getAgeData() {
             const counts = {};
             responses.forEach(r => {
-                if (r.age) {
+                if (r.age !== undefined && r.age !== null) {
                     let ageGroup;
                     const age = typeof r.age === 'number' ? r.age : parseInt(r.age);
                     
-                    if (!isNaN(age)) {
+                    if (!isNaN(age) && age > 0) {
                         if (age <= 25) ageGroup = '20-25';
                         else if (age <= 30) ageGroup = '26-30';
                         else if (age <= 35) ageGroup = '31-35';
@@ -915,7 +1003,7 @@
                         else ageGroup = '51+';
                         
                         counts[ageGroup] = (counts[ageGroup] || 0) + 1;
-                    } else if (typeof r.age === 'string') {
+                    } else if (typeof r.age === 'string' && r.age.trim() !== '') {
                         const ageStr = r.age.toLowerCase().trim();
                         counts[ageStr] = (counts[ageStr] || 0) + 1;
                     }
@@ -930,12 +1018,12 @@
             const workload = {};
             
             responses.forEach(r => {
-                if (r.pression_echeances && r.pression_echeances !== '') {
+                if (r.pression_echeances && typeof r.pression_echeances === 'string' && r.pression_echeances.trim() !== '') {
                     const pression = r.pression_echeances.toLowerCase().trim();
                     pressure[pression] = (pressure[pression] || 0) + 1;
                 }
                 
-                if (r.charge_travail && r.charge_travail !== '') {
+                if (r.charge_travail && typeof r.charge_travail === 'string' && r.charge_travail.trim() !== '') {
                     const charge = r.charge_travail.toLowerCase().trim();
                     workload[charge] = (workload[charge] || 0) + 1;
                 }
@@ -944,20 +1032,22 @@
             return { pressure, workload };
         }
 
-        // Création de tous les graphiques
+        // Création de tous les graphiques avec Chart.js
         function createAllCharts() {
             const container = document.getElementById('chartsContainer');
+            if (!container) return;
+            
             container.innerHTML = '';
             
             // Nettoyer les graphiques existants
-            Object.keys(charts).forEach(key => {
-                if (charts[key]) {
-                    charts[key].destroy();
+            Object.values(charts).forEach(chart => {
+                if (chart && typeof chart.destroy === 'function') {
+                    chart.destroy();
                 }
             });
             charts = {};
 
-            // Créer les graphiques
+            // Créer les graphiques si les données existent
             if (Object.keys(analysisData.profiles).length > 0) {
                 createChart('Répartition des Profils Professionnels', 'doughnut', analysisData.profiles, 'profils');
             }
@@ -979,13 +1069,15 @@
 
             // Graphique de la charge de travail si disponible
             if (analysisData.workload.pressure && Object.keys(analysisData.workload.pressure).length > 0) {
-                createChart('Pression des Échéances', 'horizontalBar', analysisData.workload.pressure);
+                createChart('Pression des Échéances', 'bar', analysisData.workload.pressure, null, true);
             }
         }
 
-        // Création d'un graphique
-        function createChart(title, type, data, labelType = null) {
+        // Création d'un graphique avec Chart.js
+        function createChart(title, type, data, labelType = null, isHorizontal = false) {
             const container = document.getElementById('chartsContainer');
+            if (!container) return;
+            
             const chartDiv = document.createElement('div');
             chartDiv.className = 'chart-container';
             
@@ -996,28 +1088,32 @@
             const canvas = document.createElement('canvas');
             const chartId = 'chart_' + Date.now() + Math.random().toString(36).substr(2, 5);
             canvas.id = chartId;
+            canvas.className = 'chart-canvas';
             
             chartDiv.appendChild(titleDiv);
             chartDiv.appendChild(canvas);
             container.appendChild(chartDiv);
 
             const ctx = canvas.getContext('2d');
+            if (!ctx) return;
 
             // Préparation des données
             const labels = [];
             const values = [];
             const colors = [];
 
-            Object.entries(data).forEach(([key, value], index) => {
-                // Utiliser les labels français si disponibles
-                const friendlyLabel = labelType && frenchLabels[labelType] && frenchLabels[labelType][key] 
-                    ? frenchLabels[labelType][key] 
-                    : key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
-                
-                labels.push(friendlyLabel);
-                values.push(value);
-                colors.push(colorPalette.primary[index % colorPalette.primary.length]);
-            });
+            Object.entries(data)
+                .sort(([,a], [,b]) => b - a) // Tri par valeur décroissante
+                .forEach(([key, value], index) => {
+                    // Labels français si disponibles
+                    const friendlyLabel = labelType && frenchLabels[labelType] && frenchLabels[labelType][key] 
+                        ? frenchLabels[labelType][key] 
+                        : key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
+                    
+                    labels.push(friendlyLabel);
+                    values.push(value);
+                    colors.push(colorPalette[index % colorPalette.length]);
+                });
 
             const chartData = {
                 labels: labels,
@@ -1027,7 +1123,7 @@
                     backgroundColor: colors,
                     borderColor: colors.map(color => color + '80'),
                     borderWidth: 2,
-                    hoverOffset: 4
+                    hoverOffset: type === 'pie' || type === 'doughnut' ? 8 : 0
                 }]
             };
 
@@ -1036,22 +1132,37 @@
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        position: 'bottom',
+                        position: type === 'bar' ? 'top' : 'bottom',
                         labels: {
                             padding: 20,
                             usePointStyle: true,
                             font: {
                                 size: 12,
                                 weight: '500'
+                            },
+                            generateLabels: function(chart) {
+                                const original = Chart.defaults.plugins.legend.labels.generateLabels;
+                                const labels = original.call(this, chart);
+                                
+                                // Ajouter les pourcentages
+                                const total = chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                labels.forEach((label, index) => {
+                                    const value = chart.data.datasets[0].data[index];
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    label.text += ` (${percentage}%)`;
+                                });
+                                
+                                return labels;
                             }
                         }
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        backgroundColor: 'rgba(26, 54, 93, 0.95)',
                         titleColor: 'white',
                         bodyColor: 'white',
                         borderColor: '#4299e1',
                         borderWidth: 1,
+                        cornerRadius: 8,
                         callbacks: {
                             label: function(context) {
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
@@ -1063,30 +1174,51 @@
                 }
             };
 
-            // Options spécifiques selon le type de graphique
-            if (type === 'bar' || type === 'horizontalBar') {
+            // Configuration spécifique pour les graphiques en barres
+            if (type === 'bar') {
+                options.indexAxis = isHorizontal ? 'y' : 'x';
                 options.scales = {
-                    y: {
+                    [isHorizontal ? 'x' : 'y']: {
                         beginAtZero: true,
                         ticks: {
-                            stepSize: 1
+                            stepSize: 1,
+                            font: {
+                                size: 11
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        }
+                    },
+                    [isHorizontal ? 'y' : 'x']: {
+                        ticks: {
+                            font: {
+                                size: 11
+                            }
+                        },
+                        grid: {
+                            display: false
                         }
                     }
                 };
             }
 
-            canvas.height = 300;
-
-            charts[chartId] = new Chart(ctx, {
-                type: type === 'horizontalBar' ? 'bar' : type,
-                data: chartData,
-                options: options
-            });
+            try {
+                charts[chartId] = new Chart(ctx, {
+                    type: type,
+                    data: chartData,
+                    options: options
+                });
+            } catch (error) {
+                console.error('Erreur création graphique:', error);
+            }
         }
 
-        // Création du graphique de santé
+        // Graphique spécialisé pour les notes de santé
         function createHealthChart() {
             const container = document.getElementById('chartsContainer');
+            if (!container) return;
+            
             const chartDiv = document.createElement('div');
             chartDiv.className = 'chart-container';
             
@@ -1097,12 +1229,14 @@
             const canvas = document.createElement('canvas');
             const chartId = 'health_chart_' + Date.now();
             canvas.id = chartId;
+            canvas.className = 'chart-canvas';
             
             chartDiv.appendChild(titleDiv);
             chartDiv.appendChild(canvas);
             container.appendChild(chartDiv);
 
             const ctx = canvas.getContext('2d');
+            if (!ctx) return;
 
             const chartData = {
                 labels: ['Santé Physique', 'Santé Psychologique'],
@@ -1111,7 +1245,9 @@
                     data: [analysisData.avgHealthPhys, analysisData.avgHealthPsych],
                     backgroundColor: ['#48bb78', '#4299e1'],
                     borderColor: ['#38a169', '#2b6cb0'],
-                    borderWidth: 2
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    borderSkipped: false
                 }]
             };
 
@@ -1123,7 +1259,18 @@
                         beginAtZero: true,
                         max: 10,
                         ticks: {
-                            stepSize: 1
+                            stepSize: 1,
+                            callback: function(value) {
+                                return value + '/10';
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
                         }
                     }
                 },
@@ -1132,40 +1279,47 @@
                         display: false
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        backgroundColor: 'rgba(26, 54, 93, 0.95)',
                         titleColor: 'white',
                         bodyColor: 'white',
                         callbacks: {
                             label: function(context) {
-                                return `${context.label}: ${context.parsed.toFixed(1)}/10`;
+                                return `${context.label}: ${context.parsed.y.toFixed(1)}/10`;
                             }
                         }
                     }
                 }
             };
 
-            canvas.height = 300;
-
-            charts[chartId] = new Chart(ctx, {
-                type: 'bar',
-                data: chartData,
-                options: options
-            });
+            try {
+                charts[chartId] = new Chart(ctx, {
+                    type: 'bar',
+                    data: chartData,
+                    options: options
+                });
+            } catch (error) {
+                console.error('Erreur création graphique santé:', error);
+            }
         }
 
-        // Export PDF détaillé
+        // Export PDF professionnel et complet
         function exportDetailedPDF() {
             try {
+                if (typeof window.jspdf === 'undefined') {
+                    throw new Error('Bibliothèque jsPDF non chargée');
+                }
+                
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
                 
-                let y = 20;
+                let y = 25;
                 const margin = 20;
                 const pageHeight = doc.internal.pageSize.getHeight();
+                const pageWidth = doc.internal.pageSize.getWidth();
 
-                // Fonction pour ajouter une nouvelle page si nécessaire
+                // Fonction pour gérer les sauts de page
                 function checkNewPage(additionalHeight = 30) {
-                    if (y + additionalHeight > pageHeight - 20) {
+                    if (y + additionalHeight > pageHeight - 25) {
                         doc.addPage();
                         y = 30;
                         return true;
@@ -1173,36 +1327,42 @@
                     return false;
                 }
 
-                // En-tête du rapport
-                doc.setFontSize(22);
+                // En-tête professionnel
+                doc.setFontSize(24);
                 doc.setTextColor(30, 58, 114);
-                doc.text('BAROMÈTRE SANTÉ 2025', doc.internal.pageSize.getWidth() / 2, y, { align: 'center' });
+                doc.text('BAROMÈTRE SANTÉ 2025', pageWidth / 2, y, { align: 'center' });
                 y += 15;
                 
-                doc.setFontSize(14);
+                doc.setFontSize(16);
                 doc.setTextColor(45, 90, 160);
-                doc.text('Cabinet Saint Germain Audit', doc.internal.pageSize.getWidth() / 2, y, { align: 'center' });
-                y += 10;
+                doc.text('Cabinet Saint Germain Audit', pageWidth / 2, y, { align: 'center' });
+                y += 12;
                 
-                doc.setFontSize(10);
+                doc.setFontSize(12);
                 doc.setTextColor(100, 100, 100);
-                doc.text('Rapport généré le ' + new Date().toLocaleDateString('fr-FR'), doc.internal.pageSize.getWidth() / 2, y, { align: 'center' });
+                const now = new Date();
+                const dateStr = now.toLocaleDateString('fr-FR', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                doc.text(`Rapport généré le ${dateStr}`, pageWidth / 2, y, { align: 'center' });
                 y += 25;
 
-                // Ligne de séparation
+                // Ligne de séparation élégante
                 doc.setDrawColor(66, 153, 225);
-                doc.setLineWidth(1);
-                doc.line(margin, y, doc.internal.pageSize.getWidth() - margin, y);
-                y += 20;
+                doc.setLineWidth(1.5);
+                doc.line(margin, y, pageWidth - margin, y);
+                y += 25;
 
                 // Synthèse exécutive
-                checkNewPage(60);
-                doc.setFontSize(16);
+                checkNewPage(80);
+                doc.setFontSize(18);
                 doc.setTextColor(26, 54, 93);
                 doc.text('📊 SYNTHÈSE EXÉCUTIVE', margin, y);
-                y += 15;
+                y += 20;
 
-                doc.setFontSize(11);
+                doc.setFontSize(12);
                 doc.setTextColor(60, 60, 60);
                 
                 const synthese = [
@@ -1215,11 +1375,12 @@
                 ];
 
                 synthese.forEach(line => {
+                    checkNewPage(10);
                     doc.text('• ' + line, margin + 5, y);
                     y += 8;
                 });
 
-                y += 10;
+                y += 15;
 
                 // Analyse détaillée par section
                 const sections = [
@@ -1230,168 +1391,381 @@
                 ];
 
                 sections.forEach(section => {
-                    if (Object.keys(section.data).length === 0) return;
+                    if (!section.data || Object.keys(section.data).length === 0) return;
 
-                    checkNewPage(50);
+                    checkNewPage(60);
                     
-                    doc.setFontSize(14);
+                    doc.setFontSize(16);
                     doc.setTextColor(26, 54, 93);
                     doc.text(section.title, margin, y);
-                    y += 12;
+                    y += 15;
 
-                    doc.setFontSize(10);
+                    doc.setFontSize(11);
                     doc.setTextColor(60, 60, 60);
 
                     const total = Object.values(section.data).reduce((sum, val) => sum + val, 0);
 
                     Object.entries(section.data)
-                        .sort(([,a], [,b]) => b - a) // Tri par nombre décroissant
+                        .sort(([,a], [,b]) => b - a) // Tri décroissant
                         .forEach(([key, count]) => {
-                            const percent = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+                            const percent = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0';
                             const label = section.labelType && frenchLabels[section.labelType] && frenchLabels[section.labelType][key] 
                                 ? frenchLabels[section.labelType][key] 
                                 : key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
                             
                             checkNewPage(8);
-                            doc.text(`• ${label}: ${count} réponses (${percent}%)`, margin + 5, y);
+                            doc.text(`• ${label} : ${count} réponse${count > 1 ? 's' : ''} (${percent}%)`, margin + 5, y);
                             y += 7;
                         });
 
-                    y += 10;
+                    y += 12;
                 });
 
-                // Recommandations
-                checkNewPage(80);
+                // Section santé détaillée
+                checkNewPage(50);
                 doc.setFontSize(16);
                 doc.setTextColor(26, 54, 93);
-                doc.text('💡 RECOMMANDATIONS', margin, y);
+                doc.text('🏥 ANALYSE SANTÉ DÉTAILLÉE', margin, y);
                 y += 15;
 
                 doc.setFontSize(11);
                 doc.setTextColor(60, 60, 60);
 
-                const recommendations = generateRecommendations();
-                recommendations.forEach(rec => {
-                    checkNewPage(15);
-                    const lines = doc.splitTextToSize('• ' + rec, doc.internal.pageSize.getWidth() - 2 * margin - 10);
-                    lines.forEach(line => {
-                        doc.text(line, margin + 5, y);
-                        y += 7;
-                    });
-                    y += 3;
+                const healthAnalysis = [
+                    `Santé physique : ${analysisData.avgHealthPhys.toFixed(1)}/10 ${getHealthStatus(analysisData.avgHealthPhys)}`,
+                    `Santé psychologique : ${analysisData.avgHealthPsych.toFixed(1)}/10 ${getHealthStatus(analysisData.avgHealthPsych)}`,
+                    `Écart santé physique/psychologique : ${Math.abs(analysisData.avgHealthPhys - analysisData.avgHealthPsych).toFixed(1)} points`,
+                    `Pourcentage de collaborateurs en situation de stress : ${Math.round(analysisData.stressPercent)}%`,
+                    `Estimation du risque de burnout : ${Math.round(analysisData.burnoutPercent)}% ${getBurnoutRiskLevel(analysisData.burnoutPercent)}`
+                ];
+
+                healthAnalysis.forEach(line => {
+                    checkNewPage(10);
+                    doc.text('• ' + line, margin + 5, y);
+                    y += 8;
                 });
 
-                // Pied de page sur chaque page
+                y += 15;
+
+                // Recommandations stratégiques
+                checkNewPage(100);
+                doc.setFontSize(16);
+                doc.setTextColor(26, 54, 93);
+                doc.text('💡 RECOMMANDATIONS STRATÉGIQUES', margin, y);
+                y += 15;
+
+                doc.setFontSize(11);
+                doc.setTextColor(60, 60, 60);
+
+                const recommendations = generateDetailedRecommendations();
+                recommendations.forEach((rec, index) => {
+                    checkNewPage(20);
+                    
+                    // Titre de la recommandation
+                    doc.setFont(undefined, 'bold');
+                    doc.text(`${index + 1}. ${rec.title}`, margin + 5, y);
+                    y += 8;
+                    
+                    // Description
+                    doc.setFont(undefined, 'normal');
+                    const lines = doc.splitTextToSize(rec.description, pageWidth - 2 * margin - 10);
+                    lines.forEach(line => {
+                        checkNewPage(8);
+                        doc.text(line, margin + 10, y);
+                        y += 6;
+                    });
+                    y += 5;
+                });
+
+                // Plan d'action
+                checkNewPage(60);
+                doc.setFontSize(16);
+                doc.setTextColor(26, 54, 93);
+                doc.text('🎯 PLAN D\'ACTION RECOMMANDÉ', margin, y);
+                y += 15;
+
+                doc.setFontSize(11);
+                doc.setTextColor(60, 60, 60);
+
+                const actionPlan = generateActionPlan();
+                actionPlan.forEach((action, index) => {
+                    checkNewPage(25);
+                    
+                    doc.setFont(undefined, 'bold');
+                    doc.text(`${action.priority} - ${action.title}`, margin + 5, y);
+                    y += 8;
+                    
+                    doc.setFont(undefined, 'normal');
+                    doc.text(`Délai : ${action.timeline}`, margin + 10, y);
+                    y += 6;
+                    
+                    const descLines = doc.splitTextToSize(action.description, pageWidth - 2 * margin - 10);
+                    descLines.forEach(line => {
+                        checkNewPage(6);
+                        doc.text(line, margin + 10, y);
+                        y += 6;
+                    });
+                    y += 8;
+                });
+
+                // Pied de page sur toutes les pages
                 const totalPages = doc.internal.getNumberOfPages();
                 for (let i = 1; i <= totalPages; i++) {
                     doc.setPage(i);
-                    doc.setFontSize(8);
-                    doc.setTextColor(150, 150, 150);
+                    doc.setFontSize(9);
+                    doc.setTextColor(120, 120, 120);
+                    
+                    // Pied de page gauche
                     doc.text(
-                        `Cabinet Saint Germain Audit - Baromètre Santé 2025 - Page ${i}/${totalPages}`,
-                        doc.internal.pageSize.getWidth() / 2,
-                        doc.internal.pageSize.getHeight() - 10,
+                        'Cabinet Saint Germain Audit - Confidentiel',
+                        margin,
+                        pageHeight - 15
+                    );
+                    
+                    // Pied de page centre
+                    doc.text(
+                        `Baromètre Santé 2025`,
+                        pageWidth / 2,
+                        pageHeight - 15,
                         { align: 'center' }
+                    );
+                    
+                    // Pied de page droite
+                    doc.text(
+                        `Page ${i}/${totalPages}`,
+                        pageWidth - margin,
+                        pageHeight - 15,
+                        { align: 'right' }
                     );
                 }
 
-                // Sauvegarde
-                const fileName = `Barometre_Sante_2025_${new Date().toISOString().slice(0, 10)}.pdf`;
+                // Sauvegarde avec nom intelligent
+                const timestamp = now.toISOString().slice(0, 10).replace(/-/g, '');
+                const fileName = `Barometre_Sante_2025_${timestamp}_${analysisData.total}repondants.pdf`;
+                
                 doc.save(fileName);
                 
                 showAlert(`📄 Rapport PDF généré avec succès : ${fileName}`, 'success');
+                
             } catch (error) {
                 console.error('❌ Erreur génération PDF:', error);
-                showAlert('❌ Erreur lors de la génération du PDF : ' + error.message, 'error');
+                showAlert(`❌ Erreur lors de la génération du PDF : ${error.message}`, 'error');
             }
         }
 
-        // Génération des recommandations basées sur l'analyse
-        function generateRecommendations() {
+        // Fonctions utilitaires pour le PDF
+        function getHealthStatus(score) {
+            if (score >= 8) return '(Excellente)';
+            if (score >= 7) return '(Très bonne)';
+            if (score >= 6) return '(Bonne)';
+            if (score >= 5) return '(Correcte)';
+            if (score >= 4) return '(Préoccupante)';
+            return '(Critique)';
+        }
+
+        function getBurnoutRiskLevel(percent) {
+            if (percent < 10) return '(Risque faible)';
+            if (percent < 20) return '(Risque modéré)';
+            if (percent < 30) return '(Risque élevé)';
+            return '(Risque critique)';
+        }
+
+        // Génération des recommandations détaillées
+        function generateDetailedRecommendations() {
             const recommendations = [];
 
-            // Recommandations basées sur la santé
+            // Recommandations santé physique
             if (analysisData.avgHealthPhys < 6) {
-                recommendations.push('Santé physique préoccupante: Organiser des sessions de sensibilisation aux bonnes pratiques ergonomiques et encourager l\'activité physique.');
+                recommendations.push({
+                    title: 'Amélioration de la santé physique',
+                    description: 'Mettre en place un programme d\'ergonomie au poste de travail, organiser des sessions d\'activité physique adaptée et sensibiliser aux bonnes pratiques de santé au travail. Considérer l\'aménagement des espaces de travail pour favoriser le bien-être physique.'
+                });
             }
 
+            // Recommandations santé psychologique
             if (analysisData.avgHealthPsych < 6) {
-                recommendations.push('Santé psychologique fragile: Mettre en place un programme d\'accompagnement psychologique et des ateliers de gestion du stress.');
+                recommendations.push({
+                    title: 'Soutien à la santé psychologique',
+                    description: 'Développer un programme d\'accompagnement psychologique avec des professionnels qualifiés. Organiser des ateliers de gestion du stress et de prévention des risques psychosociaux. Mettre en place une cellule d\'écoute et de soutien.'
+                });
             }
 
-            // Recommandations basées sur le stress
-            if (analysisData.stressPercent > 60) {
-                recommendations.push('Niveau de stress élevé: Identifier et traiter les sources principales de stress organisationnel, réviser la répartition des charges de travail.');
+            // Recommandations gestion du stress
+            if (analysisData.stressPercent > 50) {
+                recommendations.push({
+                    title: 'Réduction des sources de stress',
+                    description: 'Identifier et traiter les causes principales de stress organisationnel. Réviser la répartition des charges de travail, améliorer les processus de communication interne et renforcer l\'autonomie des collaborateurs dans leurs missions.'
+                });
             }
 
-            // Recommandations basées sur la QVT
-            if (analysisData.qvtGoodPercent < 50) {
-                recommendations.push('QVT insuffisante: Développer un plan d\'amélioration des conditions de travail en concertation avec les équipes.');
+            // Recommandations QVT
+            if (analysisData.qvtGoodPercent < 60) {
+                recommendations.push({
+                    title: 'Amélioration de la qualité de vie au travail',
+                    description: 'Développer un plan d\'amélioration de la QVT en concertation avec les équipes. Focus sur l\'équilibre vie professionnelle/personnelle, la reconnaissance du travail accompli et l\'amélioration de l\'environnement de travail.'
+                });
             }
 
-            // Recommandations basées sur le risque de burnout
-            if (analysisData.burnoutPercent > 20) {
-                recommendations.push('Risque de burnout préoccupant: Mise en place urgente d\'un dispositif de prévention et de détection précoce du burnout.');
+            // Recommandations burnout
+            if (analysisData.burnoutPercent > 15) {
+                recommendations.push({
+                    title: 'Prévention du burnout',
+                    description: 'Mise en place urgente d\'un dispositif de prévention et de détection précoce du burnout. Formation des managers à la détection des signaux d\'alerte et création d\'un protocole d\'intervention rapide.'
+                });
             }
 
             // Recommandations générales
-            recommendations.push('Organiser des réunions d\'équipe régulières pour maintenir le dialogue et identifier les points d\'amélioration.');
-            recommendations.push('Mettre en place un système de feedback continu et de reconnaissance du travail accompli.');
-            recommendations.push('Planifier une réévaluation dans 6 mois pour mesurer l\'impact des actions mises en place.');
+            recommendations.push({
+                title: 'Communication et dialogue social',
+                description: 'Renforcer le dialogue social par des réunions d\'équipe régulières, la mise en place d\'un système de feedback continu et l\'amélioration de la communication descendante et ascendante.'
+            });
 
             return recommendations;
         }
 
-        // Effacement de toutes les données
-        function clearAll() {
-            responses = [];
-            analysisData = {};
-            document.getElementById('fileList').style.display = 'none';
-            document.getElementById('analyzeBtn').disabled = true;
-            document.getElementById('analysisSection').style.display = 'none';
-            document.getElementById('alerts').innerHTML = '';
-            document.getElementById('chartsContainer').innerHTML = '';
-            document.getElementById('fileInput').value = '';
+        // Génération du plan d'action
+        function generateActionPlan() {
+            const actions = [];
             
-            // Nettoyer les graphiques
-            Object.keys(charts).forEach(key => {
-                if (charts[key]) {
-                    charts[key].destroy();
-                }
+            // Actions prioritaires basées sur l'analyse
+            if (analysisData.burnoutPercent > 20) {
+                actions.push({
+                    priority: 'URGENT',
+                    title: 'Dispositif de prévention burnout',
+                    timeline: 'Sous 30 jours',
+                    description: 'Formation managers, cellule d\'écoute, protocole d\'intervention'
+                });
+            }
+            
+            if (analysisData.avgHealthPsych < 5) {
+                actions.push({
+                    priority: 'PRIORITÉ 1',
+                    title: 'Programme de soutien psychologique',
+                    timeline: '1-2 mois',
+                    description: 'Partenariat avec professionnels, ateliers de gestion du stress'
+                });
+            }
+            
+            actions.push({
+                priority: 'PRIORITÉ 2',
+                title: 'Analyse approfondie des sources de stress',
+                timeline: '2-3 mois',
+                description: 'Audit organisationnel, enquête qualitative complémentaire'
             });
-            charts = {};
             
-            // Réinitialiser les statistiques
-            document.getElementById('totalResponses').textContent = '0';
-            document.getElementById('avgHealthPhys').textContent = '0';
-            document.getElementById('avgHealthPsych').textContent = '0';
-            document.getElementById('stressCount').textContent = '0%';
-            document.getElementById('qvtGood').textContent = '0%';
-            document.getElementById('burnoutRisk').textContent = '0%';
+            actions.push({
+                priority: 'PRIORITÉ 3',
+                title: 'Plan d\'amélioration QVT',
+                timeline: '3-6 mois',
+                description: 'Co-construction avec les équipes, mise en œuvre progressive'
+            });
             
-            showAlert('🗑️ Toutes les données ont été effacées', 'info');
+            actions.push({
+                priority: 'SUIVI',
+                title: 'Réévaluation du baromètre',
+                timeline: '6 mois',
+                description: 'Nouvelle enquête pour mesurer l\'impact des actions mises en place'
+            });
+
+            return actions;
         }
 
-        // Affichage des alertes
+        // Effacement complet et sécurisé
+        function clearAll() {
+            try {
+                // Réinitialisation des données
+                responses = [];
+                analysisData = {};
+                
+                // Nettoyage de l'interface
+                const elements = {
+                    fileList: 'none',
+                    analysisSection: 'none',
+                    progressSection: 'none'
+                };
+                
+                Object.entries(elements).forEach(([id, display]) => {
+                    const element = document.getElementById(id);
+                    if (element) element.style.display = display;
+                });
+                
+                // Réinitialisation des contrôles
+                const analyzeBtn = document.getElementById('analyzeBtn');
+                if (analyzeBtn) analyzeBtn.disabled = true;
+                
+                const fileInput = document.getElementById('fileInput');
+                if (fileInput) fileInput.value = '';
+                
+                // Nettoyage des alertes et graphiques
+                const alerts = document.getElementById('alerts');
+                if (alerts) alerts.innerHTML = '';
+                
+                const chartsContainer = document.getElementById('chartsContainer');
+                if (chartsContainer) chartsContainer.innerHTML = '';
+                
+                // Destruction des graphiques
+                Object.values(charts).forEach(chart => {
+                    if (chart && typeof chart.destroy === 'function') {
+                        chart.destroy();
+                    }
+                });
+                charts = {};
+                
+                // Réinitialisation des statistiques
+                const stats = ['totalResponses', 'avgHealthPhys', 'avgHealthPsych', 'stressCount', 'qvtGood', 'burnoutRisk'];
+                stats.forEach(statId => {
+                    const element = document.getElementById(statId);
+                    if (element) {
+                        element.textContent = statId.includes('Count') || statId.includes('Good') || statId.includes('Risk') ? '0%' : '0';
+                    }
+                });
+                
+                showAlert('🗑️ Toutes les données ont été effacées avec succès', 'info');
+                
+            } catch (error) {
+                console.error('Erreur lors du nettoyage:', error);
+                showAlert('Erreur lors de l\'effacement des données', 'error');
+            }
+        }
+
+        // Système d'alertes amélioré
         function showAlert(message, type) {
             const container = document.getElementById('alerts');
+            if (!container) return;
+            
             const alert = document.createElement('div');
             alert.className = `alert alert-${type}`;
             alert.textContent = message;
+            
+            // Animation d'apparition
+            alert.style.opacity = '0';
+            alert.style.transform = 'translateY(-10px)';
             container.appendChild(alert);
             
-            // Auto-suppression après 5 secondes
+            // Transition fluide
+            setTimeout(() => {
+                alert.style.opacity = '1';
+                alert.style.transform = 'translateY(0)';
+            }, 100);
+            
+            // Auto-suppression avec animation
             setTimeout(() => {
                 if (alert.parentNode) {
                     alert.style.opacity = '0';
                     alert.style.transform = 'translateY(-10px)';
-                    setTimeout(() => alert.remove(), 300);
+                    setTimeout(() => {
+                        if (alert.parentNode) {
+                            alert.remove();
+                        }
+                    }, 300);
                 }
             }, 5000);
         }
 
-        // Log de fin de script
-        console.log('✅ Script Baromètre Santé entièrement chargé et fonctionnel');
+        // Log de confirmation du chargement
+        console.log('✅ Baromètre Santé 2025 - Application entièrement chargée et fonctionnelle');
+        console.log('🔧 Version: Production Ready');
+        console.log('📊 Features: Upload, Analyse, Charts, PDF Export');
     </script>
 </body>
 </html>
