@@ -1,1079 +1,4 @@
-if (!file.name.toLowerCase().endsWith('.json')) {
-                    addFileStatus(file.name, 'Format non supporte (.json requis)', false);
-                    processed++;
-                    updateProgress(processed, total);
-                    checkComplete();
-                    return;
-                }
-
-                const reader = new FileReader();
-                
-                reader.onload = function(e) {
-                    try {
-                        const rawData = e.target.result;
-                        if (!rawData || rawData.trim() === '') {
-                            throw new Error('Fichier vide');
-                        }
-                        
-                        const data = JSON.parse(rawData);
-                        console.log(`JSON parse pour ${file.name}`);
-                        
-                        if (validateAndCleanData(data)) {
-                            responses.push(data);
-                            valid++;
-                            addFileStatus(file.name, `Charge avec succes (ID: ${data.id})`, true);
-                        } else {
-                            addFileStatus(file.name, 'Structure de donnees invalide', false);
-                        }
-                    } catch (error) {
-                        console.error(`Erreur pour ${file.name}:`, error);
-                        addFileStatus(file.name, `Erreur: ${error.message}`, false);
-                    }
-                    
-                    processed++;
-                    updateProgress(processed, total);
-                    checkComplete();
-                };
-                
-                reader.onerror = function() {
-                    addFileStatus(file.name, 'Erreur de lecture du fichier', false);
-                    processed++;
-                    updateProgress(processed, total);
-                    checkComplete();
-                };
-                
-                reader.readAsText(file, 'UTF-8');
-            });
-
-            function updateProgress(current, total) {
-                const percent = Math.round((current / total) * 100);
-                const progressFill = document.getElementById('progressFill');
-                const progressText = document.getElementById('progressText');
-                
-                if (progressFill && progressText) {
-                    progressFill.style.width = percent + '%';
-                    progressText.textContent = `Traitement ${current}/${total} fichiers (${percent}%)`;
-                }
-            }
-
-            function checkComplete() {
-                if (processed === total) {
-                    hideProgressSection();
-                    console.log(`Traitement termine. Fichiers valides: ${valid}/${total}`);
-                    
-                    if (valid > 0) {
-                        document.getElementById('analyzeBtn').disabled = false;
-                        showAlert(`${valid} fichier(s) charge(s) avec succes sur ${total}`, 'success');
-                        
-                        // Pre-validation des donnees
-                        const validationResult = validateDataIntegrity();
-                        if (validationResult.warnings.length > 0) {
-                            showAlert(`${validationResult.warnings.join(', ')}`, 'info');
-                        }
-                    } else {
-                        showAlert('Aucun fichier valide trouve. Verifiez le format JSON et la structure des donnees.', 'error');
-                    }
-                }
-            }
-        }
-
-        // Validation et nettoyage robuste des donnees
-        function validateAndCleanData(data) {
-            try {
-                if (!data || typeof data !== 'object') {
-                    return false;
-                }
-
-                // ID obligatoire
-                if (!data.id && data.id !== 0) {
-                    return false;
-                }
-
-                // Champs essentiels du barometre
-                const essentialFields = questionConfig.map(q => q.key);
-
-                let hasEssentialData = false;
-                
-                essentialFields.forEach(field => {
-                    if (data[field] !== undefined && data[field] !== null && data[field] !== '') {
-                        hasEssentialData = true;
-                        
-                        // Nettoyage des donnees numeriques
-                        if (['sante_physique', 'sante_psychologique', 'age'].includes(field)) {
-                            const num = parseFloat(data[field]);
-                            if (!isNaN(num) && num >= 0) {
-                                data[field] = num;
-                            }
-                        }
-                        
-                        // Nettoyage des chaines
-                        if (typeof data[field] === 'string') {
-                            data[field] = data[field].trim().toLowerCase();
-                        }
-                    }
-                });
-
-                return hasEssentialData;
-            } catch (error) {
-                console.error('Erreur validation:', error);
-                return false;
-            }
-        }
-
-        // Validation de l'integrite globale des donnees
-        function validateDataIntegrity() {
-            const warnings = [];
-            let totalFields = 0;
-            let missingFields = 0;
-            
-            const expectedFields = questionConfig.map(q => q.key);
-            
-            responses.forEach(response => {
-                expectedFields.forEach(field => {
-                    totalFields++;
-                    if (!response[field] || response[field] === '' || response[field] === null) {
-                        missingFields++;
-                    }
-                });
-            });
-            
-            const missingPercent = totalFields > 0 ? (missingFields / totalFields) * 100 : 0;
-            if (missingPercent > 20) {
-                warnings.push(`${Math.round(missingPercent)}% de donnees manquantes detectees`);
-            }
-            
-            return { warnings };
-        }
-
-        // Affichage des statuts de fichiers
-        function addFileStatus(fileName, status, isValid) {
-            const fileList = document.getElementById('fileList');
-            if (!fileList) return;
-            
-            const item = document.createElement('div');
-            item.className = 'file-item';
-            
-            const fileInfo = document.createElement('span');
-            fileInfo.style.fontWeight = '600';
-            fileInfo.textContent = `${fileName}`;
-            
-            const statusInfo = document.createElement('span');
-            statusInfo.style.color = isValid ? '#38a169' : '#e53e3e';
-            statusInfo.style.fontWeight = '600';
-            statusInfo.textContent = status;
-            
-            item.appendChild(fileInfo);
-            item.appendChild(statusInfo);
-            fileList.appendChild(item);
-        }
-
-        // Gestion de la barre de progression
-        function showProgressSection() {
-            const section = document.getElementById('progressSection');
-            if (section) section.style.display = 'block';
-        }
-
-        function hideProgressSection() {
-            setTimeout(() => {
-                const section = document.getElementById('progressSection');
-                if (section) section.style.display = 'none';
-            }, 1000);
-        }
-
-        // Analyse complete des donnees selon l'ordre des questions
-        function analyzeData() {
-            console.log('Debut analyse avec', responses.length, 'reponses');
-            
-            if (responses.length === 0) {
-                showAlert('Aucune donnee a analyser', 'error');
-                return;
-            }
-
-            // Animation du bouton
-            const btn = document.getElementById('analyzeBtn');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<span class="loading"></span> Analyse en cours...';
-            btn.disabled = true;
-
-            try {
-                setTimeout(() => {
-                    try {
-                        calculateComprehensiveStats();
-                        createOrderedCharts();
-                        
-                        const analysisSection = document.getElementById('analysisSection');
-                        if (analysisSection) {
-                            analysisSection.style.display = 'block';
-                            analysisSection.scrollIntoView({ behavior: 'smooth' });
-                        }
-                        
-                        btn.innerHTML = originalText;
-                        btn.disabled = false;
-                        
-                        showAlert('Analyse terminee avec succes !', 'success');
-                    } catch (error) {
-                        throw error;
-                    }
-                }, 800);
-                
-            } catch (error) {
-                console.error('Erreur analyse:', error);
-                showAlert(`Erreur lors de l'analyse: ${error.message}`, 'error');
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }
-        }
-
-        // Calculs statistiques complets et precis
-        function calculateComprehensiveStats() {
-            const total = responses.length;
-            
-            // Sante physique et psychologique separees
-            let physSum = 0, physCount = 0;
-            let psychoSum = 0, psychoCount = 0;
-            
-            responses.forEach(r => {
-                if (r.sante_physique !== undefined && !isNaN(parseFloat(r.sante_physique))) {
-                    physSum += parseFloat(r.sante_physique);
-                    physCount++;
-                }
-                if (r.sante_psychologique !== undefined && !isNaN(parseFloat(r.sante_psychologique))) {
-                    psychoSum += parseFloat(r.sante_psychologique);
-                    psychoCount++;
-                }
-            });
-
-            const avgHealthPhys = physCount > 0 ? physSum / physCount : 0;
-            const avgHealthPsych = psychoCount > 0 ? psychoSum / psychoCount : 0;
-
-            // Calcul precis du stress
-            let stressCount = 0;
-            responses.forEach(r => {
-                let hasStress = false;
-                
-                if (r.sources_stress) {
-                    if (Array.isArray(r.sources_stress)) {
-                        hasStress = r.sources_stress.some(s => 
-                            s && s !== 'pas_stresse' && s !== 'aucun' && s.trim() !== ''
-                        );
-                    } else if (typeof r.sources_stress === 'string') {
-                        const stress = r.sources_stress.trim().toLowerCase();
-                        hasStress = stress !== 'pas_stresse' && stress !== 'aucun' && stress !== '';
-                    }
-                }
-                
-                if (hasStress) stressCount++;
-            });
-
-            // QVT satisfaisante (bonne + excellente)
-            let qvtGoodCount = 0;
-            responses.forEach(r => {
-                if (r.qvt === 'excellente' || r.qvt === 'bonne') {
-                    qvtGoodCount++;
-                }
-            });
-
-            // Risque de burnout (algorithme multicriteres)
-            let burnoutRiskCount = 0;
-            responses.forEach(r => {
-                const lowHealthPhys = r.sante_physique && parseFloat(r.sante_physique) < 5;
-                const lowHealthPsych = r.sante_psychologique && parseFloat(r.sante_psychologique) < 5;
-                
-                let highStress = false;
-                if (r.sources_stress && Array.isArray(r.sources_stress)) {
-                    highStress = r.sources_stress.filter(s => 
-                        s && s !== 'pas_stresse' && s !== 'aucun'
-                    ).length > 2;
-                } else if (r.sources_stress && typeof r.sources_stress === 'string') {
-                    highStress = r.sources_stress !== 'pas_stresse' && r.sources_stress !== 'aucun';
-                }
-                
-                const poorQVT = ['decevante', 'mauvaise', 'nocive'].includes(r.qvt);
-                
-                // Criteres de risque combines
-                const riskFactors = [lowHealthPhys, lowHealthPsych, highStress, poorQVT].filter(Boolean).length;
-                if (riskFactors >= 2) {
-                    burnoutRiskCount++;
-                }
-            });
-
-            // Mise a jour securisee de l'interface
-            const updateElement = (id, value) => {
-                const element = document.getElementById(id);
-                if (element) element.textContent = value;
-            };
-
-            updateElement('totalResponses', total);
-            updateElement('avgHealthPhys', avgHealthPhys.toFixed(1));
-            updateElement('avgHealthPsych', avgHealthPsych.toFixed(1));
-            updateElement('stressCount', Math.round((stressCount / total) * 100) + '%');
-            updateElement('qvtGood', Math.round((qvtGoodCount / total) * 100) + '%');
-            updateElement('burnoutRisk', Math.round((burnoutRiskCount / total) * 100) + '%');
-
-            // Collecte des donnees detaillees pour chaque question dans l'ordre
-            analysisData = {
-                total: total,
-                avgHealthPhys: avgHealthPhys,
-                avgHealthPsych: avgHealthPsych,
-                stressPercent: (stressCount / total) * 100,
-                qvtGoodPercent: (qvtGoodCount / total) * 100,
-                burnoutPercent: (burnoutRiskCount / total) * 100,
-                detailedAnswers: collectDetailedAnswers()
-            };
-
-            console.log('Donnees analysees:', analysisData);
-        }
-
-        // Collecte des reponses detaillees pour chaque question
-        function collectDetailedAnswers() {
-            const detailedData = {};
-
-            questionConfig.forEach(questionConf => {
-                const key = questionConf.key;
-                detailedData[key] = {
-                    config: questionConf,
-                    answers: {}
-                };
-
-                if (questionConf.type === 'scale') {
-                    // Pour les echelles numeriques
-                    for (let i = questionConf.min; i <= questionConf.max; i++) {
-                        detailedData[key].answers[i] = 0;
-                    }
-
-                    responses.forEach(r => {
-                        if (r[key] !== undefined && !isNaN(parseFloat(r[key]))) {
-                            const value = Math.round(parseFloat(r[key]));
-                            if (value >= questionConf.min && value <= questionConf.max) {
-                                detailedData[key].answers[value]++;
-                            }
-                        }
-                    });
-                } else if (questionConf.type === 'multiple') {
-                    // Pour les questions a reponses multiples
-                    Object.keys(questionConf.options).forEach(optionKey => {
-                        detailedData[key].answers[optionKey] = 0;
-                    });
-
-                    responses.forEach(r => {
-                        if (r[key]) {
-                            if (Array.isArray(r[key])) {
-                                r[key].forEach(answer => {
-                                    const normalizedAnswer = answer.toLowerCase().trim();
-                                    if (detailedData[key].answers.hasOwnProperty(normalizedAnswer)) {
-                                        detailedData[key].answers[normalizedAnswer]++;
-                                    }
-                                });
-                            } else if (typeof r[key] === 'string') {
-                                const normalizedAnswer = r[key].toLowerCase().trim();
-                                if (detailedData[key].answers.hasOwnProperty(normalizedAnswer)) {
-                                    detailedData[key].answers[normalizedAnswer]++;
-                                }
-                            }
-                        }
-                    });
-                } else if (questionConf.type === 'age_groups') {
-                    // Pour les tranches d'age
-                    Object.keys(questionConf.options).forEach(optionKey => {
-                        detailedData[key].answers[optionKey] = 0;
-                    });
-
-                    responses.forEach(r => {
-                        if (r[key] !== undefined && r[key] !== null) {
-                            if (typeof r[key] === 'number') {
-                                // Conversion age numerique vers tranche
-                                const age = r[key];
-                                let ageGroup;
-                                if (age <= 25) ageGroup = '20-25';
-                                else if (age <= 30) ageGroup = '26-30';
-                                else if (age <= 35) ageGroup = '31-35';
-                                else if (age <= 40) ageGroup = '36-40';
-                                else if (age <= 45) ageGroup = '41-45';
-                                else if (age <= 50) ageGroup = '46-50';
-                                else ageGroup = '51+';
-                                
-                                if (detailedData[key].answers.hasOwnProperty(ageGroup)) {
-                                    detailedData[key].answers[ageGroup]++;
-                                }
-                            } else if (typeof r[key] === 'string') {
-                                const normalizedAnswer = r[key].toLowerCase().trim();
-                                if (detailedData[key].answers.hasOwnProperty(normalizedAnswer)) {
-                                    detailedData[key].answers[normalizedAnswer]++;
-                                }
-                            }
-                        }
-                    });
-                } else {
-                    // Pour les autres types de questions (select, frequency, level, satisfaction)
-                    Object.keys(questionConf.options).forEach(optionKey => {
-                        detailedData[key].answers[optionKey] = 0;
-                    });
-
-                    responses.forEach(r => {
-                        if (r[key] && typeof r[key] === 'string') {
-                            const normalizedAnswer = r[key].toLowerCase().trim();
-                            if (detailedData[key].answers.hasOwnProperty(normalizedAnswer)) {
-                                detailedData[key].answers[normalizedAnswer]++;
-                            }
-                        }
-                    });
-                }
-
-                // Calcul du total des reponses pour cette question
-                detailedData[key].totalAnswers = Object.values(detailedData[key].answers).reduce((sum, count) => sum + count, 0);
-            });
-
-            return detailedData;
-        }
-
-        // Creation des graphiques selon l'ordre des questions
-        function createOrderedCharts() {
-            const container = document.getElementById('chartsContainer');
-            if (!container) return;
-            
-            container.innerHTML = '';
-            
-            // Nettoyer les graphiques existants
-            Object.values(charts).forEach(chart => {
-                if (chart && typeof chart.destroy === 'function') {
-                    chart.destroy();
-                }
-            });
-            charts = {};
-
-            // Creer un graphique pour chaque question avec des donnees
-            questionConfig.forEach(questionConf => {
-                const questionData = analysisData.detailedAnswers[questionConf.key];
-                if (questionData && questionData.totalAnswers > 0) {
-                    createQuestionChart(questionConf, questionData);
-                }
-            });
-        }
-
-        // Creation d'un graphique pour une question specifique
-        function createQuestionChart(questionConf, questionData) {
-            const container = document.getElementById('chartsContainer');
-            if (!container) return;
-            
-            const chartDiv = document.createElement('div');
-            chartDiv.className = 'chart-container';
-            
-            const titleDiv = document.createElement('div');
-            titleDiv.className = 'chart-title';
-            titleDiv.textContent = questionConf.label;
-            
-            const canvas = document.createElement('canvas');
-            const chartId = 'chart_' + questionConf.key + '_' + Date.now();
-            canvas.id = chartId;
-            canvas.className = 'chart-canvas';
-            
-            chartDiv.appendChild(titleDiv);
-            chartDiv.appendChild(canvas);
-            container.appendChild(chartDiv);
-
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-
-            // Preparation des donnees
-            const labels = [];
-            const values = [];
-            const colors = [];
-
-            Object.entries(questionData.answers)
-                .filter(([key, value]) => value > 0) // Afficher seulement les reponses non vides
-                .sort(([,a], [,b]) => b - a) // Tri par valeur decroissante
-                .forEach(([key, value], index) => {
-                    // Utiliser les labels de configuration si disponibles
-                    let friendlyLabel = key;
-                    if (questionConf.options && questionConf.options[key]) {
-                        friendlyLabel = questionConf.options[key];
-                    } else if (questionConf.type === 'scale') {
-                        friendlyLabel = key + '/10';
-                    } else {
-                        friendlyLabel = key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
-                    }
-                    
-                    labels.push(friendlyLabel);
-                    values.push(value);
-                    colors.push(colorPalette[index % colorPalette.length]);
-                });
-
-            const chartData = {
-                labels: labels,
-                datasets: [{
-                    label: 'Nombre de reponses',
-                    data: values,
-                    backgroundColor: colors,
-                    borderColor: colors.map(color => color + '80'),
-                    borderWidth: 2,
-                    hoverOffset: questionConf.type === 'scale' ? 0 : 8
-                }]
-            };
-
-            // Choisir le type de graphique selon le type de question
-            let chartType = 'bar';
-            if (['select', 'satisfaction'].includes(questionConf.type) && labels.length <= 6) {
-                chartType = 'doughnut';
-            } else if (questionConf.type === 'multiple') {
-                chartType = 'bar';
-            } else if (questionConf.type === 'scale') {
-                chartType = 'bar';
-            }
-
-            const options = {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: chartType === 'bar' ? 'top' : 'bottom',
-                        labels: {
-                            padding: 20,
-                            usePointStyle: true,
-                            font: {
-                                size: 12,
-                                weight: '500'
-                            },
-                            generateLabels: function(chart) {
-                                const original = Chart.defaults.plugins.legend.labels.generateLabels;
-                                const labels = original.call(this, chart);
-                                
-                                // Ajouter les pourcentages
-                                const total = chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                                labels.forEach((label, index) => {
-                                    const value = chart.data.datasets[0].data[index];
-                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
-                                    label.text += ` (${percentage}%)`;
-                                });
-                                
-                                return labels;
-                            }
-                        }
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(26, 54, 93, 0.95)',
-                        titleColor: 'white',
-                        bodyColor: 'white',
-                        borderColor: '#4299e1',
-                        borderWidth: 1,
-                        cornerRadius: 8,
-                        callbacks: {
-                            label: function(context) {
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0';
-                                return `${context.label}: ${context.parsed} reponse${context.parsed > 1 ? 's' : ''} (${percentage}%)`;
-                            }
-                        }
-                    }
-                }
-            };
-
-            // Configuration specifique pour les graphiques en barres
-            if (chartType === 'bar') {
-                options.indexAxis = 'x';
-                options.scales = {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1,
-                            font: {
-                                size: 11
-                            }
-                        },
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.1)'
-                        }
-                    },
-                    x: {
-                        ticks: {
-                            font: {
-                                size: 11
-                            },
-                            maxRotation: 45
-                        },
-                        grid: {
-                            display: false
-                        }
-                    }
-                };
-            }
-
-            try {
-                charts[chartId] = new Chart(ctx, {
-                    type: chartType,
-                    data: chartData,
-                    options: options
-                });
-            } catch (error) {
-                console.error('Erreur creation graphique:', error);
-            }
-        }
-
-        // Export PDF professionnel avec analyse detaillee dans l'ordre des questions
-        function exportDetailedPDF() {
-            try {
-                if (typeof window.jspdf === 'undefined') {
-                    throw new Error('Bibliotheque jsPDF non chargee');
-                }
-                
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                
-                let y = 25;
-                const margin = 20;
-                const pageHeight = doc.internal.pageSize.getHeight();
-                const pageWidth = doc.internal.pageSize.getWidth();
-
-                // Fonction pour gerer les sauts de page
-                function checkNewPage(additionalHeight = 30) {
-                    if (y + additionalHeight > pageHeight - 25) {
-                        doc.addPage();
-                        y = 30;
-                        return true;
-                    }
-                    return false;
-                }
-
-                // En-tete professionnel
-                doc.setFontSize(24);
-                doc.setTextColor(30, 58, 114);
-                doc.text('BAROMETRE SANTE 2025', pageWidth / 2, y, { align: 'center' });
-                y += 15;
-                
-                doc.setFontSize(16);
-                doc.setTextColor(45, 90, 160);
-                doc.text('Cabinet Saint Germain Audit', pageWidth / 2, y, { align: 'center' });
-                y += 12;
-                
-                doc.setFontSize(12);
-                doc.setTextColor(100, 100, 100);
-                const now = new Date();
-                const dateStr = now.toLocaleDateString('fr-FR', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
-                doc.text(`Rapport genere le ${dateStr}`, pageWidth / 2, y, { align: 'center' });
-                y += 25;
-
-                // Ligne de separation elegante
-                doc.setDrawColor(66, 153, 225);
-                doc.setLineWidth(1.5);
-                doc.line(margin, y, pageWidth - margin, y);
-                y += 25;
-
-                // Synthese executive
-                checkNewPage(80);
-                doc.setFontSize(18);
-                doc.setTextColor(26, 54, 93);
-                doc.text('SYNTHESE EXECUTIVE', margin, y);
-                y += 20;
-
-                doc.setFontSize(12);
-                doc.setTextColor(60, 60, 60);
-                
-                const synthese = [
-                    `Nombre total de repondants : ${analysisData.total}`,
-                    `Note sante physique moyenne : ${analysisData.avgHealthPhys.toFixed(1)}/10`,
-                    `Note sante psychologique moyenne : ${analysisData.avgHealthPsych.toFixed(1)}/10`,
-                    `Pourcentage de collaborateurs stresses : ${Math.round(analysisData.stressPercent)}%`,
-                    `QVT jugee satisfaisante (bonne/excellente) : ${Math.round(analysisData.qvtGoodPercent)}%`,
-                    `Collaborateurs a risque de burnout : ${Math.round(analysisData.burnoutPercent)}%`
-                ];
-
-                synthese.forEach(line => {
-                    checkNewPage(10);
-                    doc.text('• ' + line, margin + 5, y);
-                    y += 8;
-                });
-
-                y += 20;
-
-                // Analyse detaillee question par question dans l'ordre
-                doc.setFontSize(18);
-                doc.setTextColor(26, 54, 93);
-                doc.text('ANALYSE DETAILLEE PAR QUESTION', margin, y);
-                y += 20;
-
-                // Parcourir chaque question dans l'ordre
-                questionConfig.forEach((questionConf, index) => {
-                    const questionData = analysisData.detailedAnswers[questionConf.key];
-                    if (!questionData || questionData.totalAnswers === 0) return;
-
-                    checkNewPage(80);
-                    
-                    // Titre de la question
-                    doc.setFontSize(14);
-                    doc.setTextColor(26, 54, 93);
-                    doc.text(`${index + 1}. ${questionConf.label.toUpperCase()}`, margin, y);
-                    y += 10;
-
-                    // Question complete
-                    doc.setFontSize(11);
-                    doc.setTextColor(80, 80, 80);
-                    const questionLines = doc.splitTextToSize(`Question: ${questionConf.question}`, pageWidth - 2 * margin);
-                    questionLines.forEach(line => {
-                        checkNewPage(8);
-                        doc.text(line, margin + 5, y);
-                        y += 6;
-                    });
-                    y += 5;
-
-                    // Total des reponses pour cette question
-                    doc.setFontSize(11);
-                    doc.setTextColor(60, 60, 60);
-                    doc.text(`Nombre de repondants : ${questionData.totalAnswers}`, margin + 5, y);
-                    y += 10;
-
-                    // Detail des reponses
-                    doc.setFontSize(10);
-                    doc.setTextColor(60, 60, 60);
-
-                    Object.entries(questionData.answers)
-                        .filter(([key, value]) => value > 0)
-                        .sort(([,a], [,b]) => b - a)
-                        .forEach(([key, count]) => {
-                            const percent = questionData.totalAnswers > 0 ? ((count / questionData.totalAnswers) * 100).toFixed(1) : '0.0';
-                            
-                            // Utiliser le label approprie
-                            let label = key;
-                            if (questionConf.options && questionConf.options[key]) {
-                                label = questionConf.options[key];
-                            } else if (questionConf.type === 'scale') {
-                                label = `Note ${key}/10`;
-                            } else {
-                                label = key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
-                            }
-                            
-                            checkNewPage(8);
-                            doc.text(`  • ${label}: ${count} reponse${count > 1 ? 's' : ''} (${percent}%)`, margin + 10, y);
-                            y += 7;
-                        });
-
-                    y += 15;
-                });
-
-                // Recommandations strategiques
-                checkNewPage(100);
-                doc.setFontSize(16);
-                doc.setTextColor(26, 54, 93);
-                doc.text('RECOMMANDATIONS STRATEGIQUES', margin, y);
-                y += 15;
-
-                doc.setFontSize(11);
-                doc.setTextColor(60, 60, 60);
-
-                const recommendations = generateDetailedRecommendations();
-                recommendations.forEach((rec, index) => {
-                    checkNewPage(20);
-                    
-                    // Titre de la recommandation
-                    doc.setFont(undefined, 'bold');
-                    doc.text(`${index + 1}. ${rec.title}`, margin + 5, y);
-                    y += 8;
-                    
-                    // Description
-                    doc.setFont(undefined, 'normal');
-                    const lines = doc.splitTextToSize(rec.description, pageWidth - 2 * margin - 10);
-                    lines.forEach(line => {
-                        checkNewPage(8);
-                        doc.text(line, margin + 10, y);
-                        y += 6;
-                    });
-                    y += 8;
-                });
-
-                // Plan d'action
-                checkNewPage(60);
-                doc.setFontSize(16);
-                doc.setTextColor(26, 54, 93);
-                doc.text('PLAN D\'ACTION RECOMMANDE', margin, y);
-                y += 15;
-
-                doc.setFontSize(11);
-                doc.setTextColor(60, 60, 60);
-
-                const actionPlan = generateActionPlan();
-                actionPlan.forEach((action, index) => {
-                    checkNewPage(25);
-                    
-                    doc.setFont(undefined, 'bold');
-                    doc.text(`${action.priority} - ${action.title}`, margin + 5, y);
-                    y += 8;
-                    
-                    doc.setFont(undefined, 'normal');
-                    doc.text(`Delai : ${action.timeline}`, margin + 10, y);
-                    y += 6;
-                    
-                    const descLines = doc.splitTextToSize(action.description, pageWidth - 2 * margin - 10);
-                    descLines.forEach(line => {
-                        checkNewPage(6);
-                        doc.text(line, margin + 10, y);
-                        y += 6;
-                    });
-                    y += 8;
-                });
-
-                // Pied de page sur toutes les pages
-                const totalPages = doc.internal.getNumberOfPages();
-                for (let i = 1; i <= totalPages; i++) {
-                    doc.setPage(i);
-                    doc.setFontSize(9);
-                    doc.setTextColor(120, 120, 120);
-                    
-                    // Pied de page gauche
-                    doc.text(
-                        'Cabinet Saint Germain Audit - Confidentiel',
-                        margin,
-                        pageHeight - 15
-                    );
-                    
-                    // Pied de page centre
-                    doc.text(
-                        `Barometre Sante 2025`,
-                        pageWidth / 2,
-                        pageHeight - 15,
-                        { align: 'center' }
-                    );
-                    
-                    // Pied de page droite
-                    doc.text(
-                        `Page ${i}/${totalPages}`,
-                        pageWidth - margin,
-                        pageHeight - 15,
-                        { align: 'right' }
-                    );
-                }
-
-                // Sauvegarde avec nom intelligent
-                const timestamp = now.toISOString().slice(0, 10).replace(/-/g, '');
-                const fileName = `Barometre_Sante_2025_${timestamp}_${analysisData.total}repondants.pdf`;
-                
-                doc.save(fileName);
-                
-                showAlert(`Rapport PDF genere avec succes : ${fileName}`, 'success');
-                
-            } catch (error) {
-                console.error('Erreur generation PDF:', error);
-                showAlert(`Erreur lors de la generation du PDF : ${error.message}`, 'error');
-            }
-        }
-
-        // Fonctions utilitaires pour le PDF
-        function getHealthStatus(score) {
-            if (score >= 8) return '(Excellente)';
-            if (score >= 7) return '(Tres bonne)';
-            if (score >= 6) return '(Bonne)';
-            if (score >= 5) return '(Correcte)';
-            if (score >= 4) return '(Preoccupante)';
-            return '(Critique)';
-        }
-
-        function getBurnoutRiskLevel(percent) {
-            if (percent < 10) return '(Risque faible)';
-            if (percent < 20) return '(Risque modere)';
-            if (percent < 30) return '(Risque eleve)';
-            return '(Risque critique)';
-        }
-
-        // Generation des recommandations detaillees
-        function generateDetailedRecommendations() {
-            const recommendations = [];
-
-            // Recommandations sante physique
-            if (analysisData.avgHealthPhys < 6) {
-                recommendations.push({
-                    title: 'Amelioration de la sante physique',
-                    description: 'Mettre en place un programme d\'ergonomie au poste de travail, organiser des sessions d\'activite physique adaptee et sensibiliser aux bonnes pratiques de sante au travail. Considerer l\'amenagement des espaces de travail pour favoriser le bien-etre physique.'
-                });
-            }
-
-            // Recommandations sante psychologique
-            if (analysisData.avgHealthPsych < 6) {
-                recommendations.push({
-                    title: 'Soutien a la sante psychologique',
-                    description: 'Developper un programme d\'accompagnement psychologique avec des professionnels qualifies. Organiser des ateliers de gestion du stress et de prevention des risques psychosociaux. Mettre en place une cellule d\'ecoute et de soutien.'
-                });
-            }
-
-            // Recommandations gestion du stress
-            if (analysisData.stressPercent > 50) {
-                recommendations.push({
-                    title: 'Reduction des sources de stress',
-                    description: 'Identifier et traiter les causes principales de stress organisationnel. Reviser la repartition des charges de travail, ameliorer les processus de communication interne et renforcer l\'autonomie des collaborateurs dans leurs missions.'
-                });
-            }
-
-            // Recommandations QVT
-            if (analysisData.qvtGoodPercent < 60) {
-                recommendations.push({
-                    title: 'Amelioration de la qualite de vie au travail',
-                    description: 'Developper un plan d\'amelioration de la QVT en concertation avec les equipes. Focus sur l\'equilibre vie professionnelle/personnelle, la reconnaissance du travail accompli et l\'amelioration de l\'environnement de travail.'
-                });
-            }
-
-            // Recommandations burnout
-            if (analysisData.burnoutPercent > 15) {
-                recommendations.push({
-                    title: 'Prevention du burnout',
-                    description: 'Mise en place urgente d\'un dispositif de prevention et de detection precoce du burnout. Formation des managers a la detection des signaux d\'alerte et creation d\'un protocole d\'intervention rapide.'
-                });
-            }
-
-            // Recommandations generales
-            recommendations.push({
-                title: 'Communication et dialogue social',
-                description: 'Renforcer le dialogue social par des reunions d\'equipe regulieres, la mise en place d\'un systeme de feedback continu et l\'amelioration de la communication descendante et ascendante.'
-            });
-
-            return recommendations;
-        }
-
-        // Generation du plan d'action
-        function generateActionPlan() {
-            const actions = [];
-            
-            // Actions prioritaires basees sur l'analyse
-            if (analysisData.burnoutPercent > 20) {
-                actions.push({
-                    priority: 'URGENT',
-                    title: 'Dispositif de prevention burnout',
-                    timeline: 'Sous 30 jours',
-                    description: 'Formation managers, cellule d\'ecoute, protocole d\'intervention'
-                });
-            }
-            
-            if (analysisData.avgHealthPsych < 5) {
-                actions.push({
-                    priority: 'PRIORITE 1',
-                    title: 'Programme de soutien psychologique',
-                    timeline: '1-2 mois',
-                    description: 'Partenariat avec professionnels, ateliers de gestion du stress'
-                });
-            }
-            
-            actions.push({
-                priority: 'PRIORITE 2',
-                title: 'Analyse approfondie des sources de stress',
-                timeline: '2-3 mois',
-                description: 'Audit organisationnel, enquete qualitative complementaire'
-            });
-            
-            actions.push({
-                priority: 'PRIORITE 3',
-                title: 'Plan d\'amelioration QVT',
-                timeline: '3-6 mois',
-                description: 'Co-construction avec les equipes, mise en oeuvre progressive'
-            });
-            
-            actions.push({
-                priority: 'SUIVI',
-                title: 'Reevaluation du barometre',
-                timeline: '6 mois',
-                description: 'Nouvelle enquete pour mesurer l\'impact des actions mises en place'
-            });
-
-            return actions;
-        }
-
-        // Effacement complet et securise
-        function clearAll() {
-            try {
-                // Reinitialisation des donnees
-                responses = [];
-                analysisData = {};
-                
-                // Nettoyage de l'interface
-                const elements = {
-                    fileList: 'none',
-                    analysisSection: 'none',
-                    progressSection: 'none'
-                };
-                
-                Object.entries(elements).forEach(([id, display]) => {
-                    const element = document.getElementById(id);
-                    if (element) element.style.display = display;
-                });
-                
-                // Reinitialisation des controles
-                const analyzeBtn = document.getElementById('analyzeBtn');
-                if (analyzeBtn) analyzeBtn.disabled = true;
-                
-                const fileInput = document.getElementById('fileInput');
-                if (fileInput) fileInput.value = '';
-                
-                // Nettoyage des alertes et graphiques
-                const alerts = document.getElementById('alerts');
-                if (alerts) alerts.innerHTML = '';
-                
-                const chartsContainer = document.getElementById('chartsContainer');
-                if (chartsContainer) chartsContainer.innerHTML = '';
-                
-                // Destruction des graphiques
-                Object.values(charts).forEach(chart => {
-                    if (chart && typeof chart.destroy === 'function') {
-                        chart.destroy();
-                    }
-                });
-                charts = {};
-                
-                // Reinitialisation des statistiques
-                const stats = ['totalResponses', 'avgHealthPhys', 'avgHealthPsych', 'stressCount', 'qvtGood', 'burnoutRisk'];
-                stats.forEach(statId => {
-                    const element = document.getElementById(statId);
-                    if (element) {
-                        element.textContent = statId.includes('Count') || statId.includes('Good') || statId.includes('Risk') ? '0%' : '0';
-                    }
-                });
-                
-                showAlert('Toutes les donnees ont ete effacees avec succes', 'info');
-                
-            } catch (error) {
-                console.error('Erreur lors du nettoyage:', error);
-                showAlert('Erreur lors de l\'effacement des donnees', 'error');
-            }
-        }
-
-        // Systeme d'alertes ameliore
-        function showAlert(message, type) {
-            const container = document.getElementById('alerts');
-            if (!container) return;
-            
-            const alert = document.createElement('div');
-            alert.className = `alert alert-${type}`;
-            alert.textContent = message;
-            
-            // Animation d'apparition
-            alert.style.opacity = '0';
-            alert.style.transform = 'translateY(-10px)';
-            container.appendChild(alert);
-            
-            // Transition fluide
-            setTimeout(() => {
-                alert.style.opacity = '1';
-                alert.style.transform = 'translateY(0)';
-            }, 100);
-            
-            // Auto-suppression avec animation
-            setTimeout(() => {
-                if (alert.parentNode) {
-                    alert.style.opacity = '0';
-                    alert.style.transform = 'translateY(-10px)';
-                    setTimeout(() => {
-                        if (alert.parentNode) {
-                            alert.remove();
-                        }
-                    }, 300);
-                }
-            }, 5000);
-        }
-
-        // Log de confirmation du chargement
-        console.log('Barometre Sante 2025 - Application entierement chargee et fonctionnelle');
-        console.log('Version: Production Ready - Sans emojis');
-        console.log('Features: Upload, Analyse detaillee par question, Charts ordonnes, PDF complet');
-    </script>
-</body>
-</html><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -1694,22 +619,11 @@ if (!file.name.toLowerCase().endsWith('.json')) {
             console.log('Application Barometre Sante 2025 chargee');
             
             try {
-                // Verification des elements critiques
-                const requiredElements = ['fileInput', 'analyzeBtn', 'alerts', 'chartsContainer'];
-                const missingElements = requiredElements.filter(id => !document.getElementById(id));
-                
-                if (missingElements.length > 0) {
-                    console.error('Elements manquants:', missingElements);
-                    return;
-                }
-                
-                // Evenements de fichier
                 const fileInput = document.getElementById('fileInput');
                 if (fileInput) {
                     fileInput.addEventListener('change', handleFileSelect);
                 }
 
-                // Support drag & drop
                 const uploadZone = document.querySelector('.upload-zone');
                 if (uploadZone) {
                     uploadZone.addEventListener('dragover', handleDragOver);
@@ -1724,7 +638,6 @@ if (!file.name.toLowerCase().endsWith('.json')) {
             }
         });
 
-        // Gestion securisee du drag & drop
         function handleDragOver(event) {
             event.preventDefault();
             event.stopPropagation();
@@ -1750,24 +663,19 @@ if (!file.name.toLowerCase().endsWith('.json')) {
             }
         }
 
-        // Gestion de la selection de fichiers
         function handleFileSelect(event) {
             const files = event.target.files;
-            console.log('Fichiers selectionnes:', files.length);
-            
             if (files.length > 0) {
                 handleFiles(files);
             }
         }
 
-        // Traitement robuste des fichiers
         function handleFiles(files) {
             if (!files || files.length === 0) {
                 showAlert('Aucun fichier selectionne', 'error');
                 return;
             }
             
-            // Reinitialisation
             responses = [];
             showProgressSection();
             
@@ -1779,8 +687,800 @@ if (!file.name.toLowerCase().endsWith('.json')) {
             let valid = 0;
             const total = files.length;
 
-            // Traitement asynchrone de chaque fichier
             Array.from(files).forEach((file, index) => {
-                console.log(`Traitement fichier ${index + 1}/${total}: ${file.name}`);
+                if (!file.name.toLowerCase().endsWith('.json')) {
+                    addFileStatus(file.name, 'Format non supporte (.json requis)', false);
+                    processed++;
+                    updateProgress(processed, total);
+                    checkComplete();
+                    return;
+                }
 
-                if (!file
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const rawData = e.target.result;
+                        if (!rawData || rawData.trim() === '') {
+                            throw new Error('Fichier vide');
+                        }
+                        
+                        const data = JSON.parse(rawData);
+                        
+                        if (validateAndCleanData(data)) {
+                            responses.push(data);
+                            valid++;
+                            addFileStatus(file.name, `Charge avec succes (ID: ${data.id})`, true);
+                        } else {
+                            addFileStatus(file.name, 'Structure de donnees invalide', false);
+                        }
+                    } catch (error) {
+                        console.error(`Erreur pour ${file.name}:`, error);
+                        addFileStatus(file.name, `Erreur: ${error.message}`, false);
+                    }
+                    
+                    processed++;
+                    updateProgress(processed, total);
+                    checkComplete();
+                };
+                
+                reader.onerror = function() {
+                    addFileStatus(file.name, 'Erreur de lecture du fichier', false);
+                    processed++;
+                    updateProgress(processed, total);
+                    checkComplete();
+                };
+                
+                reader.readAsText(file, 'UTF-8');
+            });
+
+            function updateProgress(current, total) {
+                const percent = Math.round((current / total) * 100);
+                const progressFill = document.getElementById('progressFill');
+                const progressText = document.getElementById('progressText');
+                
+                if (progressFill && progressText) {
+                    progressFill.style.width = percent + '%';
+                    progressText.textContent = `Traitement ${current}/${total} fichiers (${percent}%)`;
+                }
+            }
+
+            function checkComplete() {
+                if (processed === total) {
+                    hideProgressSection();
+                    
+                    if (valid > 0) {
+                        document.getElementById('analyzeBtn').disabled = false;
+                        showAlert(`${valid} fichier(s) charge(s) avec succes sur ${total}`, 'success');
+                    } else {
+                        showAlert('Aucun fichier valide trouve. Verifiez le format JSON et la structure des donnees.', 'error');
+                    }
+                }
+            }
+        }
+
+        function validateAndCleanData(data) {
+            try {
+                if (!data || typeof data !== 'object') {
+                    return false;
+                }
+
+                if (!data.id && data.id !== 0) {
+                    return false;
+                }
+
+                const essentialFields = questionConfig.map(q => q.key);
+                let hasEssentialData = false;
+                
+                essentialFields.forEach(field => {
+                    if (data[field] !== undefined && data[field] !== null && data[field] !== '') {
+                        hasEssentialData = true;
+                        
+                        if (['sante_physique', 'sante_psychologique', 'age'].includes(field)) {
+                            const num = parseFloat(data[field]);
+                            if (!isNaN(num) && num >= 0) {
+                                data[field] = num;
+                            }
+                        }
+                        
+                        if (typeof data[field] === 'string') {
+                            data[field] = data[field].trim().toLowerCase();
+                        }
+                    }
+                });
+
+                return hasEssentialData;
+            } catch (error) {
+                console.error('Erreur validation:', error);
+                return false;
+            }
+        }
+
+        function addFileStatus(fileName, status, isValid) {
+            const fileList = document.getElementById('fileList');
+            if (!fileList) return;
+            
+            const item = document.createElement('div');
+            item.className = 'file-item';
+            
+            const fileInfo = document.createElement('span');
+            fileInfo.style.fontWeight = '600';
+            fileInfo.textContent = fileName;
+            
+            const statusInfo = document.createElement('span');
+            statusInfo.style.color = isValid ? '#38a169' : '#e53e3e';
+            statusInfo.style.fontWeight = '600';
+            statusInfo.textContent = status;
+            
+            item.appendChild(fileInfo);
+            item.appendChild(statusInfo);
+            fileList.appendChild(item);
+        }
+
+        function showProgressSection() {
+            const section = document.getElementById('progressSection');
+            if (section) section.style.display = 'block';
+        }
+
+        function hideProgressSection() {
+            setTimeout(() => {
+                const section = document.getElementById('progressSection');
+                if (section) section.style.display = 'none';
+            }, 1000);
+        }
+
+        function analyzeData() {
+            if (responses.length === 0) {
+                showAlert('Aucune donnee a analyser', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('analyzeBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="loading"></span> Analyse en cours...';
+            btn.disabled = true;
+
+            try {
+                setTimeout(() => {
+                    try {
+                        calculateComprehensiveStats();
+                        createOrderedCharts();
+                        
+                        const analysisSection = document.getElementById('analysisSection');
+                        if (analysisSection) {
+                            analysisSection.style.display = 'block';
+                            analysisSection.scrollIntoView({ behavior: 'smooth' });
+                        }
+                        
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        
+                        showAlert('Analyse terminee avec succes !', 'success');
+                    } catch (error) {
+                        throw error;
+                    }
+                }, 800);
+                
+            } catch (error) {
+                console.error('Erreur analyse:', error);
+                showAlert(`Erreur lors de l'analyse: ${error.message}`, 'error');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        function calculateComprehensiveStats() {
+            const total = responses.length;
+            
+            let physSum = 0, physCount = 0;
+            let psychoSum = 0, psychoCount = 0;
+            
+            responses.forEach(r => {
+                if (r.sante_physique !== undefined && !isNaN(parseFloat(r.sante_physique))) {
+                    physSum += parseFloat(r.sante_physique);
+                    physCount++;
+                }
+                if (r.sante_psychologique !== undefined && !isNaN(parseFloat(r.sante_psychologique))) {
+                    psychoSum += parseFloat(r.sante_psychologique);
+                    psychoCount++;
+                }
+            });
+
+            const avgHealthPhys = physCount > 0 ? physSum / physCount : 0;
+            const avgHealthPsych = psychoCount > 0 ? psychoSum / psychoCount : 0;
+
+            let stressCount = 0;
+            responses.forEach(r => {
+                let hasStress = false;
+                
+                if (r.sources_stress) {
+                    if (Array.isArray(r.sources_stress)) {
+                        hasStress = r.sources_stress.some(s => 
+                            s && s !== 'pas_stresse' && s !== 'aucun' && s.trim() !== ''
+                        );
+                    } else if (typeof r.sources_stress === 'string') {
+                        const stress = r.sources_stress.trim().toLowerCase();
+                        hasStress = stress !== 'pas_stresse' && stress !== 'aucun' && stress !== '';
+                    }
+                }
+                
+                if (hasStress) stressCount++;
+            });
+
+            let qvtGoodCount = 0;
+            responses.forEach(r => {
+                if (r.qvt === 'excellente' || r.qvt === 'bonne') {
+                    qvtGoodCount++;
+                }
+            });
+
+            let burnoutRiskCount = 0;
+            responses.forEach(r => {
+                const lowHealthPhys = r.sante_physique && parseFloat(r.sante_physique) < 5;
+                const lowHealthPsych = r.sante_psychologique && parseFloat(r.sante_psychologique) < 5;
+                
+                let highStress = false;
+                if (r.sources_stress && Array.isArray(r.sources_stress)) {
+                    highStress = r.sources_stress.filter(s => 
+                        s && s !== 'pas_stresse' && s !== 'aucun'
+                    ).length > 2;
+                } else if (r.sources_stress && typeof r.sources_stress === 'string') {
+                    highStress = r.sources_stress !== 'pas_stresse' && r.sources_stress !== 'aucun';
+                }
+                
+                const poorQVT = ['decevante', 'mauvaise', 'nocive'].includes(r.qvt);
+                
+                const riskFactors = [lowHealthPhys, lowHealthPsych, highStress, poorQVT].filter(Boolean).length;
+                if (riskFactors >= 2) {
+                    burnoutRiskCount++;
+                }
+            });
+
+            const updateElement = (id, value) => {
+                const element = document.getElementById(id);
+                if (element) element.textContent = value;
+            };
+
+            updateElement('totalResponses', total);
+            updateElement('avgHealthPhys', avgHealthPhys.toFixed(1));
+            updateElement('avgHealthPsych', avgHealthPsych.toFixed(1));
+            updateElement('stressCount', Math.round((stressCount / total) * 100) + '%');
+            updateElement('qvtGood', Math.round((qvtGoodCount / total) * 100) + '%');
+            updateElement('burnoutRisk', Math.round((burnoutRiskCount / total) * 100) + '%');
+
+            analysisData = {
+                total: total,
+                avgHealthPhys: avgHealthPhys,
+                avgHealthPsych: avgHealthPsych,
+                stressPercent: (stressCount / total) * 100,
+                qvtGoodPercent: (qvtGoodCount / total) * 100,
+                burnoutPercent: (burnoutRiskCount / total) * 100,
+                detailedAnswers: collectDetailedAnswers()
+            };
+        }
+
+        function collectDetailedAnswers() {
+            const detailedData = {};
+
+            questionConfig.forEach(questionConf => {
+                const key = questionConf.key;
+                detailedData[key] = {
+                    config: questionConf,
+                    answers: {}
+                };
+
+                if (questionConf.type === 'scale') {
+                    for (let i = questionConf.min; i <= questionConf.max; i++) {
+                        detailedData[key].answers[i] = 0;
+                    }
+
+                    responses.forEach(r => {
+                        if (r[key] !== undefined && !isNaN(parseFloat(r[key]))) {
+                            const value = Math.round(parseFloat(r[key]));
+                            if (value >= questionConf.min && value <= questionConf.max) {
+                                detailedData[key].answers[value]++;
+                            }
+                        }
+                    });
+                } else if (questionConf.type === 'multiple') {
+                    Object.keys(questionConf.options).forEach(optionKey => {
+                        detailedData[key].answers[optionKey] = 0;
+                    });
+
+                    responses.forEach(r => {
+                        if (r[key]) {
+                            if (Array.isArray(r[key])) {
+                                r[key].forEach(answer => {
+                                    const normalizedAnswer = answer.toLowerCase().trim();
+                                    if (detailedData[key].answers.hasOwnProperty(normalizedAnswer)) {
+                                        detailedData[key].answers[normalizedAnswer]++;
+                                    }
+                                });
+                            } else if (typeof r[key] === 'string') {
+                                const normalizedAnswer = r[key].toLowerCase().trim();
+                                if (detailedData[key].answers.hasOwnProperty(normalizedAnswer)) {
+                                    detailedData[key].answers[normalizedAnswer]++;
+                                }
+                            }
+                        }
+                    });
+                } else if (questionConf.type === 'age_groups') {
+                    Object.keys(questionConf.options).forEach(optionKey => {
+                        detailedData[key].answers[optionKey] = 0;
+                    });
+
+                    responses.forEach(r => {
+                        if (r[key] !== undefined && r[key] !== null) {
+                            if (typeof r[key] === 'number') {
+                                const age = r[key];
+                                let ageGroup;
+                                if (age <= 25) ageGroup = '20-25';
+                                else if (age <= 30) ageGroup = '26-30';
+                                else if (age <= 35) ageGroup = '31-35';
+                                else if (age <= 40) ageGroup = '36-40';
+                                else if (age <= 45) ageGroup = '41-45';
+                                else if (age <= 50) ageGroup = '46-50';
+                                else ageGroup = '51+';
+                                
+                                if (detailedData[key].answers.hasOwnProperty(ageGroup)) {
+                                    detailedData[key].answers[ageGroup]++;
+                                }
+                            } else if (typeof r[key] === 'string') {
+                                const normalizedAnswer = r[key].toLowerCase().trim();
+                                if (detailedData[key].answers.hasOwnProperty(normalizedAnswer)) {
+                                    detailedData[key].answers[normalizedAnswer]++;
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    Object.keys(questionConf.options).forEach(optionKey => {
+                        detailedData[key].answers[optionKey] = 0;
+                    });
+
+                    responses.forEach(r => {
+                        if (r[key] && typeof r[key] === 'string') {
+                            const normalizedAnswer = r[key].toLowerCase().trim();
+                            if (detailedData[key].answers.hasOwnProperty(normalizedAnswer)) {
+                                detailedData[key].answers[normalizedAnswer]++;
+                            }
+                        }
+                    });
+                }
+
+                detailedData[key].totalAnswers = Object.values(detailedData[key].answers).reduce((sum, count) => sum + count, 0);
+            });
+
+            return detailedData;
+        }
+
+        function createOrderedCharts() {
+            const container = document.getElementById('chartsContainer');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            Object.values(charts).forEach(chart => {
+                if (chart && typeof chart.destroy === 'function') {
+                    chart.destroy();
+                }
+            });
+            charts = {};
+
+            questionConfig.forEach(questionConf => {
+                const questionData = analysisData.detailedAnswers[questionConf.key];
+                if (questionData && questionData.totalAnswers > 0) {
+                    createQuestionChart(questionConf, questionData);
+                }
+            });
+        }
+
+        function createQuestionChart(questionConf, questionData) {
+            const container = document.getElementById('chartsContainer');
+            if (!container) return;
+            
+            const chartDiv = document.createElement('div');
+            chartDiv.className = 'chart-container';
+            
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'chart-title';
+            titleDiv.textContent = questionConf.label;
+            
+            const canvas = document.createElement('canvas');
+            const chartId = 'chart_' + questionConf.key + '_' + Date.now();
+            canvas.id = chartId;
+            canvas.className = 'chart-canvas';
+            
+            chartDiv.appendChild(titleDiv);
+            chartDiv.appendChild(canvas);
+            container.appendChild(chartDiv);
+
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            const labels = [];
+            const values = [];
+            const colors = [];
+
+            Object.entries(questionData.answers)
+                .filter(([key, value]) => value > 0)
+                .sort(([,a], [,b]) => b - a)
+                .forEach(([key, value], index) => {
+                    let friendlyLabel = key;
+                    if (questionConf.options && questionConf.options[key]) {
+                        friendlyLabel = questionConf.options[key];
+                    } else if (questionConf.type === 'scale') {
+                        friendlyLabel = key + '/10';
+                    } else {
+                        friendlyLabel = key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
+                    }
+                    
+                    labels.push(friendlyLabel);
+                    values.push(value);
+                    colors.push(colorPalette[index % colorPalette.length]);
+                });
+
+            const chartData = {
+                labels: labels,
+                datasets: [{
+                    label: 'Nombre de reponses',
+                    data: values,
+                    backgroundColor: colors,
+                    borderColor: colors.map(color => color + '80'),
+                    borderWidth: 2,
+                    hoverOffset: questionConf.type === 'scale' ? 0 : 8
+                }]
+            };
+
+            let chartType = 'bar';
+            if (['select', 'satisfaction'].includes(questionConf.type) && labels.length <= 6) {
+                chartType = 'doughnut';
+            } else if (questionConf.type === 'multiple') {
+                chartType = 'bar';
+            } else if (questionConf.type === 'scale') {
+                chartType = 'bar';
+            }
+
+            const options = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: chartType === 'bar' ? 'top' : 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true,
+                            font: {
+                                size: 12,
+                                weight: '500'
+                            },
+                            generateLabels: function(chart) {
+                                const original = Chart.defaults.plugins.legend.labels.generateLabels;
+                                const labels = original.call(this, chart);
+                                
+                                const total = chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                labels.forEach((label, index) => {
+                                    const value = chart.data.datasets[0].data[index];
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
+                                    label.text += ` (${percentage}%)`;
+                                });
+                                
+                                return labels;
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(26, 54, 93, 0.95)',
+                        titleColor: 'white',
+                        bodyColor: 'white',
+                        borderColor: '#4299e1',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0';
+                                return `${context.label}: ${context.parsed} reponse${context.parsed > 1 ? 's' : ''} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            };
+
+            if (chartType === 'bar') {
+                options.indexAxis = 'x';
+                options.scales = {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1,
+                            font: {
+                                size: 11
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            font: {
+                                size: 11
+                            },
+                            maxRotation: 45
+                        },
+                        grid: {
+                            display: false
+                        }
+                    }
+                };
+            }
+
+            try {
+                charts[chartId] = new Chart(ctx, {
+                    type: chartType,
+                    data: chartData,
+                    options: options
+                });
+            } catch (error) {
+                console.error('Erreur creation graphique:', error);
+            }
+        }
+
+        function exportDetailedPDF() {
+            try {
+                if (typeof window.jspdf === 'undefined') {
+                    throw new Error('Bibliotheque jsPDF non chargee');
+                }
+                
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                let y = 25;
+                const margin = 20;
+                const pageHeight = doc.internal.pageSize.getHeight();
+                const pageWidth = doc.internal.pageSize.getWidth();
+
+                function checkNewPage(additionalHeight = 30) {
+                    if (y + additionalHeight > pageHeight - 25) {
+                        doc.addPage();
+                        y = 30;
+                        return true;
+                    }
+                    return false;
+                }
+
+                doc.setFontSize(24);
+                doc.setTextColor(30, 58, 114);
+                doc.text('BAROMETRE SANTE 2025', pageWidth / 2, y, { align: 'center' });
+                y += 15;
+                
+                doc.setFontSize(16);
+                doc.setTextColor(45, 90, 160);
+                doc.text('Cabinet Saint Germain Audit', pageWidth / 2, y, { align: 'center' });
+                y += 12;
+                
+                doc.setFontSize(12);
+                doc.setTextColor(100, 100, 100);
+                const now = new Date();
+                const dateStr = now.toLocaleDateString('fr-FR', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                doc.text(`Rapport genere le ${dateStr}`, pageWidth / 2, y, { align: 'center' });
+                y += 25;
+
+                doc.setDrawColor(66, 153, 225);
+                doc.setLineWidth(1.5);
+                doc.line(margin, y, pageWidth - margin, y);
+                y += 25;
+
+                checkNewPage(80);
+                doc.setFontSize(18);
+                doc.setTextColor(26, 54, 93);
+                doc.text('SYNTHESE EXECUTIVE', margin, y);
+                y += 20;
+
+                doc.setFontSize(12);
+                doc.setTextColor(60, 60, 60);
+                
+                const synthese = [
+                    `Nombre total de repondants : ${analysisData.total}`,
+                    `Note sante physique moyenne : ${analysisData.avgHealthPhys.toFixed(1)}/10`,
+                    `Note sante psychologique moyenne : ${analysisData.avgHealthPsych.toFixed(1)}/10`,
+                    `Pourcentage de collaborateurs stresses : ${Math.round(analysisData.stressPercent)}%`,
+                    `QVT jugee satisfaisante (bonne/excellente) : ${Math.round(analysisData.qvtGoodPercent)}%`,
+                    `Collaborateurs a risque de burnout : ${Math.round(analysisData.burnoutPercent)}%`
+                ];
+
+                synthese.forEach(line => {
+                    checkNewPage(10);
+                    doc.text('• ' + line, margin + 5, y);
+                    y += 8;
+                });
+
+                y += 20;
+
+                doc.setFontSize(18);
+                doc.setTextColor(26, 54, 93);
+                doc.text('ANALYSE DETAILLEE PAR QUESTION', margin, y);
+                y += 20;
+
+                questionConfig.forEach((questionConf, index) => {
+                    const questionData = analysisData.detailedAnswers[questionConf.key];
+                    if (!questionData || questionData.totalAnswers === 0) return;
+
+                    checkNewPage(80);
+                    
+                    doc.setFontSize(14);
+                    doc.setTextColor(26, 54, 93);
+                    doc.text(`${index + 1}. ${questionConf.label.toUpperCase()}`, margin, y);
+                    y += 10;
+
+                    doc.setFontSize(11);
+                    doc.setTextColor(80, 80, 80);
+                    const questionLines = doc.splitTextToSize(`Question: ${questionConf.question}`, pageWidth - 2 * margin);
+                    questionLines.forEach(line => {
+                        checkNewPage(8);
+                        doc.text(line, margin + 5, y);
+                        y += 6;
+                    });
+                    y += 5;
+
+                    doc.setFontSize(11);
+                    doc.setTextColor(60, 60, 60);
+                    doc.text(`Nombre de repondants : ${questionData.totalAnswers}`, margin + 5, y);
+                    y += 10;
+
+                    doc.setFontSize(10);
+                    doc.setTextColor(60, 60, 60);
+
+                    Object.entries(questionData.answers)
+                        .filter(([key, value]) => value > 0)
+                        .sort(([,a], [,b]) => b - a)
+                        .forEach(([key, count]) => {
+                            const percent = questionData.totalAnswers > 0 ? ((count / questionData.totalAnswers) * 100).toFixed(1) : '0.0';
+                            
+                            let label = key;
+                            if (questionConf.options && questionConf.options[key]) {
+                                label = questionConf.options[key];
+                            } else if (questionConf.type === 'scale') {
+                                label = `Note ${key}/10`;
+                            } else {
+                                label = key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
+                            }
+                            
+                            checkNewPage(8);
+                            doc.text(`  • ${label}: ${count} reponse${count > 1 ? 's' : ''} (${percent}%)`, margin + 10, y);
+                            y += 7;
+                        });
+
+                    y += 15;
+                });
+
+                const totalPages = doc.internal.getNumberOfPages();
+                for (let i = 1; i <= totalPages; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(9);
+                    doc.setTextColor(120, 120, 120);
+                    
+                    doc.text(
+                        'Cabinet Saint Germain Audit - Confidentiel',
+                        margin,
+                        pageHeight - 15
+                    );
+                    
+                    doc.text(
+                        `Barometre Sante 2025`,
+                        pageWidth / 2,
+                        pageHeight - 15,
+                        { align: 'center' }
+                    );
+                    
+                    doc.text(
+                        `Page ${i}/${totalPages}`,
+                        pageWidth - margin,
+                        pageHeight - 15,
+                        { align: 'right' }
+                    );
+                }
+
+                const timestamp = now.toISOString().slice(0, 10).replace(/-/g, '');
+                const fileName = `Barometre_Sante_2025_${timestamp}_${analysisData.total}repondants.pdf`;
+                
+                doc.save(fileName);
+                
+                showAlert(`Rapport PDF genere avec succes : ${fileName}`, 'success');
+                
+            } catch (error) {
+                console.error('Erreur generation PDF:', error);
+                showAlert(`Erreur lors de la generation du PDF : ${error.message}`, 'error');
+            }
+        }
+
+        function clearAll() {
+            try {
+                responses = [];
+                analysisData = {};
+                
+                const elements = {
+                    fileList: 'none',
+                    analysisSection: 'none',
+                    progressSection: 'none'
+                };
+                
+                Object.entries(elements).forEach(([id, display]) => {
+                    const element = document.getElementById(id);
+                    if (element) element.style.display = display;
+                });
+                
+                const analyzeBtn = document.getElementById('analyzeBtn');
+                if (analyzeBtn) analyzeBtn.disabled = true;
+                
+                const fileInput = document.getElementById('fileInput');
+                if (fileInput) fileInput.value = '';
+                
+                const alerts = document.getElementById('alerts');
+                if (alerts) alerts.innerHTML = '';
+                
+                const chartsContainer = document.getElementById('chartsContainer');
+                if (chartsContainer) chartsContainer.innerHTML = '';
+                
+                Object.values(charts).forEach(chart => {
+                    if (chart && typeof chart.destroy === 'function') {
+                        chart.destroy();
+                    }
+                });
+                charts = {};
+                
+                const stats = ['totalResponses', 'avgHealthPhys', 'avgHealthPsych', 'stressCount', 'qvtGood', 'burnoutRisk'];
+                stats.forEach(statId => {
+                    const element = document.getElementById(statId);
+                    if (element) {
+                        element.textContent = statId.includes('Count') || statId.includes('Good') || statId.includes('Risk') ? '0%' : '0';
+                    }
+                });
+                
+                showAlert('Toutes les donnees ont ete effacees avec succes', 'info');
+                
+            } catch (error) {
+                console.error('Erreur lors du nettoyage:', error);
+                showAlert('Erreur lors de l\'effacement des donnees', 'error');
+            }
+        }
+
+        function showAlert(message, type) {
+            const container = document.getElementById('alerts');
+            if (!container) return;
+            
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            
+            alert.style.opacity = '0';
+            alert.style.transform = 'translateY(-10px)';
+            container.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.style.opacity = '1';
+                alert.style.transform = 'translateY(0)';
+            }, 100);
+            
+            setTimeout(() => {
+                if (alert.parentNode) {
+                    alert.style.opacity = '0';
+                    alert.style.transform = 'translateY(-10px)';
+                    setTimeout(() => {
+                        if (alert.parentNode) {
+                            alert.remove();
+                        }
+                    }, 300);
+                }
+            }, 5000);
+        }
+
+        console.log('Barometre Sante 2025 - Application entierement chargee et fonctionnelle');
+    </script>
+</body>
+</html>
