@@ -221,8 +221,32 @@
                 <!-- Résultats détaillés -->
             </div>
 
-            <div class="chart-placeholder">
-                <p>Graphiques disponibles après chargement de Chart.js</p>
+            <div class="chart-container">
+                <div class="chart-title">Répartition par profil professionnel</div>
+                <div class="chart-wrapper">
+                    <canvas id="profilChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">Répartition par tranche d'âge</div>
+                <div class="chart-wrapper">
+                    <canvas id="ageChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">Scores de santé moyens</div>
+                <div class="chart-wrapper" style="height: 300px;">
+                    <canvas id="healthChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">Sources de stress principales</div>
+                <div class="chart-wrapper">
+                    <canvas id="stressChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -905,6 +929,18 @@
                         'plusieurs_fois_mois': 'Plusieurs fois par mois',
                         'plusieurs_fois_semaine': 'Plusieurs fois par semaine',
                         
+                        // Pression échéances
+                        'rarement': 'Rarement',
+                        'souvent': 'Souvent',
+                        'tres_regulierement': 'Très régulièrement',
+                        
+                        // Gestion pression
+                        'tres_bien': 'Très bien',
+                        'bien': 'Bien',
+                        'moyennement': 'Moyennement',
+                        'difficilement': 'Difficilement',
+                        'tres_difficilement': 'Très difficilement',
+                        
                         // Sources de stress
                         'gestion_clients': 'Gestion des clients',
                         'complexite_dossiers': 'Complexité des dossiers',
@@ -915,12 +951,83 @@
                         'manque_formation': 'Manque de formation',
                         'pas_stresse': 'Pas de stress',
                         
+                        // Symptômes stress
+                        'fatigue': 'Fatigue',
+                        'troubles_sommeil': 'Troubles du sommeil',
+                        'maux_tete': 'Maux de tête, migraines',
+                        'tensions_musculaires': 'Tensions musculaires',
+                        'problemes_digestifs': 'Problèmes digestifs',
+                        'troubles_alimentaires': 'Troubles alimentaires',
+                        
+                        // Ergonomie
+                        'oui_totalement': 'Oui, totalement',
+                        'oui_en_partie': 'Oui, en partie',
+                        'non_pas_vraiment': 'Non, pas vraiment',
+                        'non_pas_du_tout': 'Non, pas du tout',
+                        
+                        // Soutien équipe
+                        'oui_collegues_hierarchie': 'Oui, par les collègues et la hiérarchie',
+                        'oui_uniquement_collegues': 'Oui, uniquement par mes collègues',
+                        'oui_uniquement_hierarchie': 'Oui, uniquement par ma hiérarchie',
+                        
                         // QVT
                         'excellente': 'Excellente',
                         'bonne': 'Bonne',
                         'correcte': 'Correcte',
                         'decevante': 'Décevante',
                         'nocive': 'Nocive',
+                        
+                        // Temps pause déjeuner
+                        'plus_1h': 'Plus d\'une heure',
+                        '30min_1h': 'Entre 30 minutes et une heure',
+                        'moins_30min': 'Moins de 30 minutes',
+                        'au_poste': 'À mon poste de travail',
+                        
+                        // Heures sommeil
+                        'moins_5h': 'Moins de 5 heures',
+                        'environ_5h': 'Environ 5 heures',
+                        'environ_6h': 'Environ 6 heures',
+                        'environ_7h': 'Environ 7 heures',
+                        'environ_8h': 'Environ 8 heures',
+                        'plus_8h': 'Plus de 8 heures',
+                        
+                        // Qualité sommeil
+                        'correct_qualite': 'Correct et de qualité',
+                        'perturbe': 'Perturbé',
+                        'tres_mauvais': 'Très mauvais',
+                        
+                        // Fréquence sport
+                        'plusieurs_fois_semaine': 'Plusieurs fois par semaine',
+                        'toutes_semaines': 'Toutes les semaines',
+                        'quelques_fois_mois': 'Quelques fois par mois',
+                        
+                        // Obstacles sport
+                        'manque_temps': 'Manque de temps',
+                        'manque_motivation': 'Manque de motivation',
+                        'forme_insuffisante': 'Forme physique insuffisante',
+                        'autres_raisons': 'Autres raisons',
+                        
+                        // Efficacité prévention
+                        'interessante': 'Intéressante',
+                        'utile_effets': 'Utile et suivie d\'effets',
+                        'inutile': 'Inutile',
+                        
+                        // Télétravail
+                        'jamais_cabinet_interdit': 'Jamais, le cabinet ne le permet pas',
+                        'jamais_choix': 'Jamais ou peu, mais c\'est mon choix',
+                        '1j_semaine': '1 jour par semaine en moyenne',
+                        '2j_semaine': '2 jours par semaine en moyenne',
+                        'plus_2j_semaine': 'Plus de 2 jours par semaine',
+                        '100_pourcent': '100% en télétravail',
+                        
+                        // Améliorations prioritaires
+                        'organisation_charge_travail': 'Organisation et charge de travail',
+                        'gestion_stress': 'Gestion du stress et bien-être',
+                        'environnement_travail': 'Environnement de travail, ergonomie',
+                        'perspectives_avenir': 'Perspectives d\'avenir',
+                        'qualite_restauration': 'Qualité de l\'offre de restauration',
+                        'acces_activite_sportive': 'Accès à une activité sportive',
+                        'qualite_vie_travail': 'Qualité de vie au travail',
                         
                         // Climat social
                         'tres_bon': 'Très bon',
@@ -931,7 +1038,10 @@
                         
                         // Charge de travail
                         'oui': 'Oui, raisonnable',
-                        'non': 'Non, pas raisonnable'
+                        'non': 'Non, pas raisonnable',
+                        
+                        // Prévention
+                        'ne_sais_pas': 'Je ne sais pas'
                     };
                     
                     return mappings[key] || key;
@@ -957,8 +1067,29 @@
                     { name: 'gestion_pression', title: 'GESTION PRESSION', data: analyzeField(responses, 'gestion_pression') },
                     { name: 'charge_travail', title: 'CHARGE DE TRAVAIL', data: analyzeField(responses, 'charge_travail') },
                     { name: 'sources_stress', title: 'SOURCES DE STRESS', data: summary.stressSources },
+                    { name: 'symptomes_stress', title: 'SYMPTOMES DE STRESS', data: analyzeMultipleChoiceField(responses, 'symptomes_stress') },
+                    { name: 'ergonomie_poste', title: 'ERGONOMIE POSTE DE TRAVAIL', data: analyzeField(responses, 'ergonomie_poste') },
+                    { name: 'douleurs_poste', title: 'DOULEURS PHYSIQUES', data: analyzeField(responses, 'douleurs_poste') },
+                    { name: 'consultation_pro_sante', title: 'CONSULTATION PROFESSIONNEL SANTE', data: analyzeField(responses, 'consultation_pro_sante') },
+                    { name: 'climat_social', title: 'CLIMAT SOCIAL', data: analyzeField(responses, 'climat_social') },
+                    { name: 'soutien_equipe', title: 'SOUTIEN EQUIPE', data: analyzeField(responses, 'soutien_equipe') },
                     { name: 'qvt', title: 'QUALITE DE VIE AU TRAVAIL', data: analyzeField(responses, 'qvt') },
-                    { name: 'climat_social', title: 'CLIMAT SOCIAL', data: analyzeField(responses, 'climat_social') }
+                    { name: 'offre_restauration', title: 'OFFRE RESTAURATION', data: analyzeField(responses, 'offre_restauration') },
+                    { name: 'temps_pause_dejeuner', title: 'TEMPS PAUSE DEJEUNER', data: analyzeField(responses, 'temps_pause_dejeuner') },
+                    { name: 'alimentation_saine', title: 'ALIMENTATION SAINE', data: analyzeField(responses, 'alimentation_saine') },
+                    { name: 'grignotage', title: 'GRIGNOTAGE', data: analyzeField(responses, 'grignotage') },
+                    { name: 'heures_sommeil', title: 'HEURES DE SOMMEIL', data: analyzeField(responses, 'heures_sommeil') },
+                    { name: 'sommeil_suffisant', title: 'SOMMEIL SUFFISANT', data: analyzeField(responses, 'sommeil_suffisant') },
+                    { name: 'qualite_sommeil', title: 'QUALITE SOMMEIL', data: analyzeField(responses, 'qualite_sommeil') },
+                    { name: 'penser_travail_nuit', title: 'PENSER TRAVAIL LA NUIT', data: analyzeField(responses, 'penser_travail_nuit') },
+                    { name: 'activite_physique', title: 'ACTIVITE PHYSIQUE', data: analyzeField(responses, 'activite_physique') },
+                    { name: 'frequence_sport', title: 'FREQUENCE SPORT', data: analyzeField(responses, 'frequence_sport') },
+                    { name: 'obstacles_sport', title: 'OBSTACLES SPORT', data: analyzeMultipleChoiceField(responses, 'obstacles_sport') },
+                    { name: 'cabinet_facilite_sport', title: 'CABINET FACILITE SPORT', data: analyzeField(responses, 'cabinet_facilite_sport') },
+                    { name: 'prevention_cabinet', title: 'PREVENTION CABINET', data: analyzeField(responses, 'prevention_cabinet') },
+                    { name: 'efficacite_prevention', title: 'EFFICACITE PREVENTION', data: analyzeField(responses, 'efficacite_prevention') },
+                    { name: 'rythme_teletravail', title: 'RYTHME TELETRAVAIL', data: analyzeField(responses, 'rythme_teletravail') },
+                    { name: 'ameliorations_prioritaires', title: 'AMELIORATIONS PRIORITAIRES', data: analyzeMultipleChoiceField(responses, 'ameliorations_prioritaires') }
                 ];
 
                 for (var i = 0; i < allFields.length; i++) {
