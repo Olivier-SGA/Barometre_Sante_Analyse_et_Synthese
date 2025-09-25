@@ -224,28 +224,49 @@
             <div class="chart-container">
                 <div class="chart-title">Répartition par profil professionnel</div>
                 <div class="chart-wrapper">
-                    <canvas id="profilChart"></canvas>
+                    <canvas id="profilChart" width="400" height="400"></canvas>
+                    <div id="profilChart-status" style="text-align: center; margin-top: 10px; color: #666; font-size: 0.9rem;">
+                        En attente de données...
+                    </div>
                 </div>
             </div>
 
             <div class="chart-container">
                 <div class="chart-title">Répartition par tranche d'âge</div>
                 <div class="chart-wrapper">
-                    <canvas id="ageChart"></canvas>
+                    <canvas id="ageChart" width="400" height="400"></canvas>
+                    <div id="ageChart-status" style="text-align: center; margin-top: 10px; color: #666; font-size: 0.9rem;">
+                        En attente de données...
+                    </div>
                 </div>
             </div>
 
             <div class="chart-container">
                 <div class="chart-title">Scores de santé moyens</div>
                 <div class="chart-wrapper" style="height: 300px;">
-                    <canvas id="healthChart"></canvas>
+                    <canvas id="healthChart" width="400" height="300"></canvas>
+                    <div id="healthChart-status" style="text-align: center; margin-top: 10px; color: #666; font-size: 0.9rem;">
+                        En attente de données...
+                    </div>
                 </div>
             </div>
 
             <div class="chart-container">
                 <div class="chart-title">Sources de stress principales</div>
                 <div class="chart-wrapper">
-                    <canvas id="stressChart"></canvas>
+                    <canvas id="stressChart" width="400" height="400"></canvas>
+                    <div id="stressChart-status" style="text-align: center; margin-top: 10px; color: #666; font-size: 0.9rem;">
+                        En attente de données...
+                    </div>
+                </div>
+            </div>
+
+            <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <h4>Status du système :</h4>
+                <div id="system-status">
+                    <p>Chart.js : <span id="chartjs-status">Chargement...</span></p>
+                    <p>jsPDF : <span id="jspdf-status">Chargement...</span></p>
+                    <p>Données : <span id="data-status">Aucune donnée importée</span></p>
                 </div>
             </div>
         </div>
