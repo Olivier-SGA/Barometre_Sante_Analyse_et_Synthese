@@ -155,64 +155,15 @@
             margin-top: 20px;
         }
 
-        .chart-container {
-            margin-bottom: 40px;
-            background: #f8f9fa;
-            padding: 25px;
-            border-radius: 12px;
-        }
-
-        .chart-title {
-            font-size: 1.4rem;
-            margin-bottom: 20px;
-            color: #2c3e50;
-            text-align: center;
-            font-weight: 600;
-        }
-
-        .chart-wrapper {
-            position: relative;
-            height: 400px;
+        .chart-placeholder {
+            background: #e9ecef;
+            border: 2px dashed #6c757d;
+            height: 300px;
             display: flex;
-            justify-content: center;
             align-items: center;
-        }
-
-        .status-section {
-            background: #e3f2fd;
-            padding: 15px;
-            border-radius: 8px;
+            justify-content: center;
             margin: 20px 0;
-        }
-
-        .status-item {
-            margin: 5px 0;
-            font-size: 14px;
-        }
-
-        .chart-status {
-            text-align: center;
-            margin-top: 10px;
-            color: #666;
-            font-size: 0.9rem;
-        }
-
-        .test-section {
-            background: #fff3cd;
-            padding: 15px;
             border-radius: 8px;
-            margin: 20px 0;
-            border: 1px solid #ffeaa7;
-        }
-
-        .test-btn {
-            background: #f39c12;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 5px;
         }
     </style>
 </head>
@@ -231,14 +182,6 @@
                 <button class="upload-btn" id="selectButton">Choisir les fichiers</button>
             </div>
             <div id="fileCount" class="file-count"></div>
-        </div>
-
-        <div class="test-section">
-            <h4>Tests de fonctionnement :</h4>
-            <button class="test-btn" id="testCanvas">Tester Canvas</button>
-            <button class="test-btn" id="testData">Générer données test</button>
-            <button class="test-btn" id="showResults">Afficher résultats</button>
-            <div id="testResults" style="margin-top: 10px; font-size: 12px;"></div>
         </div>
 
         <div class="error-message" id="errorMessage"></div>
@@ -274,212 +217,324 @@
                 </div>
             </div>
 
+            <div class="detailed-results" id="detailedResults">
+                <!-- Résultats détaillés -->
+            </div>
+
             <div class="chart-container">
                 <div class="chart-title">Répartition par profil professionnel</div>
                 <div class="chart-wrapper">
                     <canvas id="profilChart" width="400" height="400"></canvas>
+                    <div id="profilChart-status" style="text-align: center; margin-top: 10px; color: #666; font-size: 0.9rem;">
+                        En attente de données...
+                    </div>
                 </div>
-                <div class="chart-status" id="profilChart-status">En attente de données...</div>
             </div>
 
             <div class="chart-container">
                 <div class="chart-title">Répartition par tranche d'âge</div>
                 <div class="chart-wrapper">
                     <canvas id="ageChart" width="400" height="400"></canvas>
+                    <div id="ageChart-status" style="text-align: center; margin-top: 10px; color: #666; font-size: 0.9rem;">
+                        En attente de données...
+                    </div>
                 </div>
-                <div class="chart-status" id="ageChart-status">En attente de données...</div>
             </div>
 
             <div class="chart-container">
                 <div class="chart-title">Scores de santé moyens</div>
                 <div class="chart-wrapper" style="height: 300px;">
                     <canvas id="healthChart" width="400" height="300"></canvas>
+                    <div id="healthChart-status" style="text-align: center; margin-top: 10px; color: #666; font-size: 0.9rem;">
+                        En attente de données...
+                    </div>
                 </div>
-                <div class="chart-status" id="healthChart-status">En attente de données...</div>
             </div>
 
             <div class="chart-container">
                 <div class="chart-title">Sources de stress principales</div>
                 <div class="chart-wrapper">
                     <canvas id="stressChart" width="400" height="400"></canvas>
+                    <div id="stressChart-status" style="text-align: center; margin-top: 10px; color: #666; font-size: 0.9rem;">
+                        En attente de données...
+                    </div>
                 </div>
-                <div class="chart-status" id="stressChart-status">En attente de données...</div>
             </div>
 
-            <div class="detailed-results" id="detailedResults">
-                <!-- Résultats détaillés -->
-            </div>
-        </div>
-
-        <div class="status-section">
-            <h4>Statut du système :</h4>
-            <div id="system-status">
-                <div class="status-item">Application : <span id="app-status">Initialisation...</span></div>
-                <div class="status-item">Canvas : <span id="canvas-status">Test...</span></div>
-                <div class="status-item">Données : <span id="data-status">Aucune donnée importée</span></div>
-                <div class="status-item">Graphiques : <span id="charts-status">En attente</span></div>
+            <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <h4>Status du système :</h4>
+                <div id="system-status">
+                    <p>Chart.js : <span id="chartjs-status">Chargement...</span></p>
+                    <p>jsPDF : <span id="jspdf-status">Chargement...</span></p>
+                    <p>Données : <span id="data-status">Aucune donnée importée</span></p>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Variables globales
+        // Variables globales avec gestion sécurisée
         var analysisData = {
             responses: [],
-            summary: {},
-            charts: {}
+            summary: {}
         };
 
-        var isDebugMode = true;
+        var librariesLoaded = {
+            chartjs: false,
+            jspdf: false
+        };
 
-        // Fonction de log avec debug
-        function debugLog(message) {
-            if (console && console.log) {
-                console.log('[DEBUG] ' + message);
-            }
-            
-            // Affichage dans l'interface aussi
-            var testResults = document.getElementById('testResults');
-            if (testResults && isDebugMode) {
-                testResults.innerHTML += '<br>' + new Date().toLocaleTimeString() + ': ' + message;
+        // Fonction de log sécurisée
+        function safeLog(message) {
+            try {
+                console.log(message);
+            } catch (e) {
+                // Ignore si console non disponible
             }
         }
 
-        // Fonction de mise à jour des statuts
-        function updateStatus(elementId, message) {
-            try {
-                var element = document.getElementById(elementId);
-                if (element) {
-                    element.innerHTML = message;
-                    debugLog('Status updated - ' + elementId + ': ' + message);
-                } else {
-                    debugLog('Element not found: ' + elementId);
-                }
-            } catch (error) {
-                debugLog('Erreur updateStatus: ' + error.toString());
+        // Fonction de gestion d'erreur sécurisée
+        function handleError(error, context) {
+            safeLog('Erreur dans ' + context + ': ' + error.toString());
+            
+            var errorDiv = document.getElementById('errorMessage');
+            if (errorDiv) {
+                errorDiv.innerHTML = '<strong>Erreur:</strong> ' + error.toString();
+                errorDiv.style.display = 'block';
             }
         }
 
-        // Test du Canvas
-        function testCanvas() {
-            debugLog('Test du Canvas en cours...');
-            
+        // Initialisation principale avec gestion d'erreurs
+        function initializeApp() {
             try {
-                var canvas = document.getElementById('profilChart');
-                if (!canvas) {
-                    debugLog('ERREUR: Canvas profilChart introuvable');
-                    return false;
+                safeLog('Initialisation de l\'application...');
+                
+                // Configuration des événements
+                var selectButton = document.getElementById('selectButton');
+                var fileInput = document.getElementById('fileInput');
+                var pdfButton = document.getElementById('pdfButton');
+                
+                if (selectButton && fileInput) {
+                    selectButton.onclick = function() {
+                        fileInput.click();
+                    };
+                    
+                    fileInput.onchange = function(event) {
+                        handleFileSelection(event.target.files);
+                    };
                 }
                 
-                debugLog('Canvas trouvé: ' + canvas.tagName + ', size: ' + canvas.width + 'x' + canvas.height);
-                
-                var ctx = canvas.getContext('2d');
-                if (!ctx) {
-                    debugLog('ERREUR: Contexte 2D non disponible');
-                    return false;
+                if (pdfButton) {
+                    pdfButton.onclick = function() {
+                        generatePDF();
+                    };
                 }
                 
-                debugLog('Contexte 2D obtenu avec succès');
+                // Chargement des bibliothèques
+                loadExternalLibraries();
                 
-                // Test de dessin simple
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                
-                // Fond
-                ctx.fillStyle = '#f0f0f0';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                // Cercle test
-                ctx.beginPath();
-                ctx.arc(200, 200, 80, 0, 2 * Math.PI);
-                ctx.fillStyle = '#3498db';
-                ctx.fill();
-                ctx.strokeStyle = '#2980b9';
-                ctx.lineWidth = 4;
-                ctx.stroke();
-                
-                // Texte
-                ctx.fillStyle = '#2c3e50';
-                ctx.font = 'bold 18px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('TEST CANVAS OK!', 200, 320);
-                
-                updateStatus('canvas-status', 'Test réussi ✓');
-                updateStatus('profilChart-status', 'Canvas fonctionnel ✓');
-                
-                debugLog('Test Canvas terminé avec succès');
-                return true;
+                safeLog('Application initialisée avec succès');
                 
             } catch (error) {
-                debugLog('ERREUR Test Canvas: ' + error.toString());
-                updateStatus('canvas-status', 'Erreur: ' + error.message);
-                return false;
+                handleError(error, 'initializeApp');
             }
         }
 
-        // Génération de données de test
-        function generateTestData() {
-            debugLog('Génération de données de test...');
-            
-            var testResponses = [
-                {
-                    id: 'test1',
-                    profil: 'Médecin',
-                    age: '30-40',
-                    sante_physique: '7',
-                    sante_psychologique: '6',
-                    charge_travail: 'non',
-                    sources_stress: ['Charge de travail excessive', 'Manque de temps']
-                },
-                {
-                    id: 'test2',
-                    profil: 'Infirmier',
-                    age: '25-35',
-                    sante_physique: '6',
-                    sante_psychologique: '5',
-                    charge_travail: 'non',
-                    sources_stress: ['Relations interpersonnelles', 'Horaires irréguliers']
-                },
-                {
-                    id: 'test3',
-                    profil: 'Administratif',
-                    age: '40-50',
-                    sante_physique: '8',
-                    sante_psychologique: '7',
-                    charge_travail: 'oui',
-                    sources_stress: ['Stress organisationnel']
-                }
-            ];
-            
-            analysisData.responses = testResponses;
-            
-            debugLog('Données test générées: ' + testResponses.length + ' réponses');
-            updateStatus('data-status', 'Données test générées ✓');
-            
-            // Analyse immédiate
-            analyzeData();
-            displayResults();
-            
-            return true;
+        // Chargement sécurisé des bibliothèques externes
+        function loadExternalLibraries() {
+            try {
+                // Chart.js
+                loadScript('https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js', function() {
+                    librariesLoaded.chartjs = true;
+                    safeLog('Chart.js chargé');
+                });
+
+                // jsPDF
+                loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', function() {
+                    librariesLoaded.jspdf = true;
+                    safeLog('jsPDF chargé');
+                });
+                
+            } catch (error) {
+                handleError(error, 'loadExternalLibraries');
+            }
         }
 
-        // Analyse des données (version corrigée)
-        function analyzeData() {
-            debugLog('Début analyse des données...');
-            
+        // Fonction de chargement de script sécurisée
+        function loadScript(url, callback) {
             try {
-                var responses = analysisData.responses;
-                if (!responses || responses.length === 0) {
-                    debugLog('ERREUR: Aucune donnée à analyser');
+                var script = document.createElement('script');
+                script.src = url;
+                
+                script.onload = function() {
+                    if (callback) callback();
+                };
+                
+                script.onerror = function() {
+                    safeLog('Impossible de charger: ' + url);
+                };
+                
+                document.head.appendChild(script);
+                
+            } catch (error) {
+                handleError(error, 'loadScript');
+            }
+        }
+
+        // Gestion de la sélection de fichiers
+        function handleFileSelection(files) {
+            try {
+                if (!files || files.length === 0) {
                     return;
                 }
                 
+                safeLog('Traitement de ' + files.length + ' fichiers');
+                
+                var fileCountDiv = document.getElementById('fileCount');
+                if (fileCountDiv) {
+                    fileCountDiv.textContent = files.length + ' fichier(s) sélectionné(s)';
+                }
+                
+                var loadingDiv = document.getElementById('loading');
+                if (loadingDiv) {
+                    loadingDiv.style.display = 'block';
+                }
+                
+                // Traitement asynchrone des fichiers
+                setTimeout(function() {
+                    processFiles(files);
+                }, 100);
+                
+            } catch (error) {
+                handleError(error, 'handleFileSelection');
+            }
+        }
+
+        // Traitement des fichiers JSON
+        function processFiles(files) {
+            try {
+                analysisData.responses = [];
+                var validFiles = 0;
+                var errors = [];
+                var filesProcessed = 0;
+
+                function processNextFile(index) {
+                    if (index >= files.length) {
+                        // Tous les fichiers traités
+                        finishProcessing(validFiles, errors);
+                        return;
+                    }
+
+                    var file = files[index];
+                    
+                    if (!file.name.toLowerCase().endsWith('.json')) {
+                        errors.push(file.name + ': Format non supporté');
+                        processNextFile(index + 1);
+                        return;
+                    }
+
+                    var reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        try {
+                            var content = e.target.result;
+                            var data = JSON.parse(content);
+                            
+                            if (!data.id) {
+                                errors.push(file.name + ': ID manquant');
+                            } else {
+                                // Nettoyage des doublons
+                                cleanDataDuplicates(data);
+                                analysisData.responses.push(data);
+                                validFiles++;
+                            }
+                        } catch (parseError) {
+                            errors.push(file.name + ': ' + parseError.toString());
+                        }
+                        
+                        processNextFile(index + 1);
+                    };
+                    
+                    reader.onerror = function() {
+                        errors.push(file.name + ': Erreur de lecture');
+                        processNextFile(index + 1);
+                    };
+                    
+                    reader.readAsText(file);
+                }
+
+                processNextFile(0);
+                
+            } catch (error) {
+                handleError(error, 'processFiles');
+            }
+        }
+
+        // Finalisation du traitement
+        function finishProcessing(validFiles, errors) {
+            try {
+                var loadingDiv = document.getElementById('loading');
+                if (loadingDiv) {
+                    loadingDiv.style.display = 'none';
+                }
+
+                var fileCountDiv = document.getElementById('fileCount');
+                if (fileCountDiv) {
+                    fileCountDiv.textContent = validFiles + ' fichier(s) traité(s) avec succès';
+                }
+
+                if (errors.length > 0) {
+                    var errorDiv = document.getElementById('errorMessage');
+                    if (errorDiv) {
+                        errorDiv.innerHTML = '<strong>Erreurs:</strong><br>' + errors.join('<br>');
+                        errorDiv.style.display = 'block';
+                    }
+                }
+
+                if (validFiles > 0) {
+                    analyzeData();
+                    displayResults();
+                }
+                
+            } catch (error) {
+                handleError(error, 'finishProcessing');
+            }
+        }
+
+        // Nettoyage des doublons
+        function cleanDataDuplicates(data) {
+            try {
+                var fieldsToClean = ['sources_stress', 'symptomes_stress', 'obstacles_sport', 'ameliorations_prioritaires'];
+                
+                for (var i = 0; i < fieldsToClean.length; i++) {
+                    var field = fieldsToClean[i];
+                    if (data[field] && Array.isArray(data[field])) {
+                        // Suppression des doublons
+                        var unique = [];
+                        for (var j = 0; j < data[field].length; j++) {
+                            var value = data[field][j];
+                            if (value && unique.indexOf(value) === -1) {
+                                unique.push(value);
+                            }
+                        }
+                        data[field] = unique;
+                    }
+                }
+            } catch (error) {
+                handleError(error, 'cleanDataDuplicates');
+            }
+        }
+
+        // Analyse des données
+        function analyzeData() {
+            try {
+                var responses = analysisData.responses;
                 var summary = {};
+
                 summary.total = responses.length;
                 summary.dateAnalyse = new Date().toLocaleDateString('fr-FR');
                 
-                debugLog('Analyse de ' + summary.total + ' réponses');
-                
-                // Calcul moyennes santé
+                // Calcul des moyennes de santé
                 var physicalScores = [];
                 var psychScores = [];
                 
@@ -497,16 +552,21 @@
                     }
                 }
 
-                // Moyennes
                 if (physicalScores.length > 0) {
-                    var sum = physicalScores.reduce(function(a, b) { return a + b; }, 0);
+                    var sum = 0;
+                    for (var i = 0; i < physicalScores.length; i++) {
+                        sum += physicalScores[i];
+                    }
                     summary.avgPhysical = (sum / physicalScores.length).toFixed(1);
                 } else {
                     summary.avgPhysical = 'N/A';
                 }
 
                 if (psychScores.length > 0) {
-                    var sum = psychScores.reduce(function(a, b) { return a + b; }, 0);
+                    var sum = 0;
+                    for (var i = 0; i < psychScores.length; i++) {
+                        sum += psychScores[i];
+                    }
                     summary.avgPsych = (sum / psychScores.length).toFixed(1);
                 } else {
                     summary.avgPsych = 'N/A';
@@ -527,13 +587,10 @@
                 summary.stressSources = analyzeMultipleChoiceField(responses, 'sources_stress');
 
                 analysisData.summary = summary;
-                
-                debugLog('Analyse terminée - Profils: ' + Object.keys(summary.profils).length + 
-                        ', Ages: ' + Object.keys(summary.ages).length + 
-                        ', Sources stress: ' + Object.keys(summary.stressSources).length);
+                safeLog('Analyse terminée');
                 
             } catch (error) {
-                debugLog('ERREUR analyzeData: ' + error.toString());
+                handleError(error, 'analyzeData');
             }
         }
 
@@ -566,49 +623,31 @@
 
         // Affichage des résultats
         function displayResults() {
-            debugLog('Affichage des résultats...');
-            
             try {
                 var summary = analysisData.summary;
-                if (!summary) {
-                    debugLog('ERREUR: Pas de summary disponible');
-                    return;
-                }
                 
                 // Mise à jour des statistiques
-                updateElementText('totalResponses', summary.total);
-                updateElementText('avgPhysicalHealth', summary.avgPhysical);
-                updateElementText('avgPsychHealth', summary.avgPsych);
-                updateElementText('stressPercentage', summary.workloadPercentage + '%');
+                var totalEl = document.getElementById('totalResponses');
+                var physicalEl = document.getElementById('avgPhysicalHealth');
+                var psychEl = document.getElementById('avgPsychHealth');
+                var stressEl = document.getElementById('stressPercentage');
+                
+                if (totalEl) totalEl.textContent = summary.total;
+                if (physicalEl) physicalEl.textContent = summary.avgPhysical;
+                if (psychEl) psychEl.textContent = summary.avgPsych;
+                if (stressEl) stressEl.textContent = summary.workloadPercentage + '%';
 
                 // Affichage des résultats détaillés
                 displayDetailedResults();
-
-                // Création des graphiques
-                createAllCharts();
 
                 // Affichage de la section résultats
                 var resultsSection = document.getElementById('resultsSection');
                 if (resultsSection) {
                     resultsSection.style.display = 'block';
-                    debugLog('Section résultats affichée');
-                } else {
-                    debugLog('ERREUR: Section résultats introuvable');
                 }
                 
             } catch (error) {
-                debugLog('ERREUR displayResults: ' + error.toString());
-            }
-        }
-
-        // Fonction utilitaire pour mettre à jour le texte
-        function updateElementText(elementId, value) {
-            var element = document.getElementById(elementId);
-            if (element) {
-                element.textContent = value;
-                debugLog('Mis à jour ' + elementId + ': ' + value);
-            } else {
-                debugLog('ERREUR: Element ' + elementId + ' introuvable');
+                handleError(error, 'displayResults');
             }
         }
 
@@ -618,555 +657,541 @@
                 var summary = analysisData.summary;
                 var container = document.getElementById('detailedResults');
                 
-                if (!container) {
-                    debugLog('ERREUR: Container détaillé introuvable');
-                    return;
-                }
+                if (!container) return;
                 
                 var html = '<h3>Analyse détaillée</h3>';
                 
                 // Profils
-                if (summary.profils && Object.keys(summary.profils).length > 0) {
-                    html += '<h4>Répartition par profil:</h4><ul>';
-                    for (var key in summary.profils) {
-                        var count = summary.profils[key];
-                        var percentage = ((count / summary.total) * 100).toFixed(1);
-                        html += '<li>' + key + ': ' + count + ' (' + percentage + '%)</li>';
-                    }
-                    html += '</ul>';
+                html += '<h4>Répartition par profil:</h4><ul>';
+                for (var key in summary.profils) {
+                    var count = summary.profils[key];
+                    var percentage = ((count / summary.total) * 100).toFixed(1);
+                    html += '<li>' + key + ': ' + count + ' (' + percentage + '%)</li>';
                 }
+                html += '</ul>';
                 
                 // Ages
-                if (summary.ages && Object.keys(summary.ages).length > 0) {
-                    html += '<h4>Répartition par âge:</h4><ul>';
-                    for (var key in summary.ages) {
-                        var count = summary.ages[key];
-                        var percentage = ((count / summary.total) * 100).toFixed(1);
-                        html += '<li>' + key + ': ' + count + ' (' + percentage + '%)</li>';
+                html += '<h4>Répartition par âge:</h4><ul>';
+                for (var key in summary.ages) {
+                    var count = summary.ages[key];
+                    var percentage = ((count / summary.total) * 100).toFixed(1);
+                    html += '<li>' + key + ': ' + count + ' (' + percentage + '%)</li>';
+                }
+                html += '</ul>';
+                
+                // Sources de stress
+                if (summary.stressSources) {
+                    html += '<h4>Sources de stress:</h4><ul>';
+                    
+                    // Tri par nombre de mentions
+                    var stressArray = [];
+                    for (var key in summary.stressSources) {
+                        stressArray.push({key: key, count: summary.stressSources[key]});
+                    }
+                    stressArray.sort(function(a, b) { return b.count - a.count; });
+                    
+                    for (var i = 0; i < Math.min(10, stressArray.length); i++) {
+                        var item = stressArray[i];
+                        var displayKey = formatStressSource(item.key);
+                        html += '<li>' + displayKey + ': ' + item.count + ' mentions</li>';
                     }
                     html += '</ul>';
                 }
                 
                 container.innerHTML = html;
-                debugLog('Résultats détaillés affichés');
                 
             } catch (error) {
-                debugLog('ERREUR displayDetailedResults: ' + error.toString());
+                handleError(error, 'displayDetailedResults');
             }
         }
 
-        // Création de tous les graphiques
-        function createAllCharts() {
-            debugLog('Création de tous les graphiques...');
-            
+        // Formatage des sources de stress
+        function formatStressSource(key) {
+            var mapping = {
+                'gestion_clients': 'Gestion des clients',
+                'complexite_dossiers': 'Complexité des dossiers',
+                'tenue_delais': 'Tenue des délais',
+                'pression_hierarchique': 'Pression hiérarchique',
+                'outils_inefficaces': 'Outils inefficaces',
+                'horaires_contraintes': 'Contraintes horaires',
+                'manque_formation': 'Manque de formation',
+                'pas_stresse': 'Pas de stress'
+            };
+            return mapping[key] || key;
+        }
+
+        // Génération PDF complète et professionnelle
+        function generatePDF() {
             try {
-                var summary = analysisData.summary;
-                if (!summary || !summary.total) {
-                    debugLog('ERREUR: Pas de données pour les graphiques');
+                if (!librariesLoaded.jspdf || !window.jspdf) {
+                    alert('La génération PDF n\'est pas disponible');
                     return;
                 }
-                
-                var chartsCreated = 0;
-                
-                // Graphique profils
-                if (summary.profils && Object.keys(summary.profils).length > 0) {
-                    if (createNativePieChart('profilChart', summary.profils, 'Profils')) {
-                        chartsCreated++;
-                        updateStatus('profilChart-status', 'Graphique créé ✓');
-                    }
-                }
-                
-                // Graphique âges
-                if (summary.ages && Object.keys(summary.ages).length > 0) {
-                    if (createNativePieChart('ageChart', summary.ages, 'Âges')) {
-                        chartsCreated++;
-                        updateStatus('ageChart-status', 'Graphique créé ✓');
-                    }
-                }
-                
-                // Graphique santé
-                var healthData = {};
-                if (summary.avgPhysical !== 'N/A') healthData['Physique'] = parseFloat(summary.avgPhysical);
-                if (summary.avgPsych !== 'N/A') healthData['Psychologique'] = parseFloat(summary.avgPsych);
-                
-                if (Object.keys(healthData).length > 0) {
-                    if (createNativeBarChart('healthChart', healthData, 'Santé')) {
-                        chartsCreated++;
-                        updateStatus('healthChart-status', 'Graphique créé ✓');
-                    }
-                }
-                
-                // Graphique stress (top 5)
-                if (summary.stressSources && Object.keys(summary.stressSources).length > 0) {
-                    var topStress = getTopItems(summary.stressSources, 5);
-                    if (createNativePieChart('stressChart', topStress, 'Sources de stress')) {
-                        chartsCreated++;
-                        updateStatus('stressChart-status', 'Graphique créé ✓');
-                    }
-                }
-                
-                updateStatus('charts-status', chartsCreated + ' graphiques créés ✓');
-                debugLog('Création graphiques terminée: ' + chartsCreated + ' créés');
-                
-            } catch (error) {
-                debugLog('ERREUR createAllCharts: ' + error.toString());
-            }
-        }
 
-        // Obtenir les top N items d'un objet
-        function getTopItems(data, n) {
-            var items = [];
-            for (var key in data) {
-                items.push({key: key, value: data[key]});
-            }
-            items.sort(function(a, b) { return b.value - a.value; });
-            
-            var result = {};
-            for (var i = 0; i < Math.min(n, items.length); i++) {
-                result[items[i].key] = items[i].value;
-            }
-            return result;
-        }
+                var jsPDF = window.jspdf.jsPDF;
+                var doc = new jsPDF();
+                var summary = analysisData.summary;
+                var responses = analysisData.responses;
+                
+                var pageWidth = 210;
+                var pageHeight = 297;
+                var margin = 20;
+                var yPos = 30;
+                var pageNumber = 1;
 
-        // Création d'un graphique en secteurs natif
-        function createNativePieChart(canvasId, data, title) {
-            debugLog('Création graphique secteurs: ' + canvasId);
-            
-            try {
-                var canvas = document.getElementById(canvasId);
-                if (!canvas) {
-                    debugLog('ERREUR: Canvas ' + canvasId + ' introuvable');
-                    return false;
-                }
-                
-                var ctx = canvas.getContext('2d');
-                if (!ctx) {
-                    debugLog('ERREUR: Contexte 2D indisponible pour ' + canvasId);
-                    return false;
-                }
-                
-                var width = canvas.width;
-                var height = canvas.height;
-                var centerX = width / 2;
-                var centerY = height / 2;
-                var radius = Math.min(width, height) / 3;
-                
-                // Effacer le canvas
-                ctx.clearRect(0, 0, width, height);
-                
-                // Fond
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, width, height);
-                
-                // Calcul du total
-                var total = 0;
-                for (var key in data) {
-                    total += data[key];
-                }
-                
-                if (total === 0) {
-                    debugLog('ERREUR: Total = 0 pour ' + canvasId);
-                    return false;
-                }
-                
                 // Couleurs
-                var colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#34495e', '#e67e22'];
-                var colorIndex = 0;
-                
-                var currentAngle = 0;
-                var legendY = 20;
-                
-                // Dessin des secteurs
-                for (var key in data) {
-                    var value = data[key];
-                    var sliceAngle = (value / total) * 2 * Math.PI;
-                    
-                    // Secteur
-                    ctx.beginPath();
-                    ctx.moveTo(centerX, centerY);
-                    ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
-                    ctx.closePath();
-                    
-                    ctx.fillStyle = colors[colorIndex % colors.length];
-                    ctx.fill();
-                    
-                    ctx.strokeStyle = '#ffffff';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                    
-                    // Légende
-                    var percentage = ((value / total) * 100).toFixed(1);
-                    var legendText = key + ': ' + percentage + '%';
-                    
-                    // Rectangle couleur
-                    ctx.fillStyle = colors[colorIndex % colors.length];
-                    ctx.fillRect(10, legendY, 15, 15);
-                    
-                    // Texte légende
-                    ctx.fillStyle = '#2c3e50';
-                    ctx.font = '12px Arial';
-                    ctx.textAlign = 'left';
-                    ctx.fillText(legendText, 30, legendY + 12);
-                    
-                    legendY += 20;
-                    currentAngle += sliceAngle;
-                    colorIndex++;
-                }
-                
-                debugLog('Graphique secteurs créé: ' + canvasId + ' (' + Object.keys(data).length + ' sections)');
-                return true;
-                
-            } catch (error) {
-                debugLog('ERREUR createNativePieChart: ' + error.toString());
-                return false;
-            }
-        }
+                var primaryBlue = [52, 58, 109];  // #343a6d
+                var lightBlue = [135, 154, 234];   // #879AEA
+                var darkGray = [44, 62, 80];       // #2c3e50
+                var lightGray = [149, 165, 166];   // #95a5a6
 
-        // Création d'un graphique en barres natif
-        function createNativeBarChart(canvasId, data, title) {
-            debugLog('Création graphique barres: ' + canvasId);
-            
-            try {
-                var canvas = document.getElementById(canvasId);
-                if (!canvas) {
-                    debugLog('ERREUR: Canvas ' + canvasId + ' introuvable');
+                // Page de titre avec design professionnel
+                function createTitlePage() {
+                    // En-tête coloré
+                    doc.setFillColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+                    doc.rect(0, 0, pageWidth, 60, 'F');
+                    
+                    // Titre principal
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(24);
+                    doc.text('BAROMETRE SANTE 2025', pageWidth/2, 25, { align: 'center' });
+                    
+                    doc.setFontSize(16);
+                    doc.text('Cabinet Saint Germain Audit', pageWidth/2, 38, { align: 'center' });
+                    
+                    doc.setFontSize(12);
+                    doc.text('Rapport généré le ' + summary.dateAnalyse, pageWidth/2, 48, { align: 'center' });
+                    
+                    yPos = 80;
+                    doc.setTextColor(0, 0, 0);
+                    
+                    // Synthèse exécutive
+                    doc.setFillColor(lightBlue[0], lightBlue[1], lightBlue[2]);
+                    doc.rect(margin, yPos, pageWidth - 2*margin, 8, 'F');
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(14);
+                    doc.text('SYNTHESE EXECUTIVE', margin + 5, yPos + 6);
+                    
+                    yPos += 20;
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFontSize(11);
+                    
+                    var execSummary = [
+                        '• Nombre total de répondants : ' + summary.total,
+                        '• Note santé physique moyenne : ' + summary.avgPhysical + '/10',
+                        '• Note santé psychologique moyenne : ' + summary.avgPsych + '/10',
+                        '• Pourcentage avec charge de travail élevée : ' + summary.workloadPercentage + '%'
+                    ];
+                    
+                    for (var i = 0; i < execSummary.length; i++) {
+                        doc.text(execSummary[i], margin + 5, yPos);
+                        yPos += 8;
+                    }
+                    
+                    yPos += 15;
+                    
+                    // Section titre pour l'analyse détaillée
+                    doc.setFillColor(lightBlue[0], lightBlue[1], lightBlue[2]);
+                    doc.rect(margin, yPos, pageWidth - 2*margin, 8, 'F');
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(14);
+                    doc.text('ANALYSE DETAILLEE PAR QUESTION', margin + 5, yPos + 6);
+                    
+                    // Pied de page
+                    addFooter(doc, pageNumber, pageWidth, pageHeight);
+                }
+
+                // Fonction pour ajouter un pied de page
+                function addFooter(doc, pageNum, width, height) {
+                    doc.setFontSize(8);
+                    doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
+                    doc.text('Cabinet Saint Germain Audit - Confidentiel', margin, height - 10);
+                    doc.text('Baromètre Santé 2025', width/2, height - 10, { align: 'center' });
+                    doc.text('Page ' + pageNum + '/X', width - margin, height - 10, { align: 'right' });
+                }
+
+                // Fonction pour vérifier si une nouvelle page est nécessaire
+                function checkNewPage(neededSpace) {
+                    if (yPos + neededSpace > pageHeight - 30) {
+                        doc.addPage();
+                        pageNumber++;
+                        yPos = 30;
+                        addFooter(doc, pageNumber, pageWidth, pageHeight);
+                        return true;
+                    }
                     return false;
                 }
-                
-                var ctx = canvas.getContext('2d');
-                if (!ctx) {
-                    debugLog('ERREUR: Contexte 2D indisponible pour ' + canvasId);
-                    return false;
-                }
-                
-                var width = canvas.width;
-                var height = canvas.height;
-                var margin = 60;
-                var chartWidth = width - 2 * margin;
-                var chartHeight = height - 2 * margin;
-                
-                // Effacer le canvas
-                ctx.clearRect(0, 0, width, height);
-                
-                // Fond
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, width, height);
-                
-                var keys = Object.keys(data);
-                if (keys.length === 0) {
-                    debugLog('ERREUR: Pas de données pour ' + canvasId);
-                    return false;
-                }
-                
-                // Trouver la valeur max
-                var maxValue = 0;
-                for (var key in data) {
-                    if (data[key] > maxValue) {
-                        maxValue = data[key];
+
+                // Fonction pour créer une section de question
+                function createQuestionSection(questionNumber, questionText, data, fieldName) {
+                    checkNewPage(40);
+                    
+                    // Titre de la question avec numéro
+                    doc.setFontSize(12);
+                    doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+                    doc.text(questionNumber + '. ' + questionText.toUpperCase(), margin, yPos);
+                    yPos += 10;
+                    
+                    // Texte de la question
+                    doc.setFontSize(10);
+                    doc.setTextColor(0, 0, 0);
+                    var questionDetails = getQuestionDetails(fieldName);
+                    doc.text('Question: ' + questionDetails.text, margin, yPos);
+                    yPos += 8;
+                    
+                    // Nombre de répondants
+                    var totalForQuestion = 0;
+                    if (data) {
+                        for (var key in data) {
+                            totalForQuestion += data[key];
+                        }
                     }
-                }
-                
-                if (maxValue === 0) {
-                    debugLog('ERREUR: Valeur max = 0 pour ' + canvasId);
-                    return false;
-                }
-                
-                // Paramètres des barres
-                var barWidth = chartWidth / keys.length * 0.8;
-                var barSpacing = chartWidth / keys.length * 0.2;
-                var colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12'];
-                
-                // Dessiner les axes
-                ctx.strokeStyle = '#2c3e50';
-                ctx.lineWidth = 2;
-                
-                // Axe Y
-                ctx.beginPath();
-                ctx.moveTo(margin, margin);
-                ctx.lineTo(margin, height - margin);
-                ctx.stroke();
-                
-                // Axe X
-                ctx.beginPath();
-                ctx.moveTo(margin, height - margin);
-                ctx.lineTo(width - margin, height - margin);
-                ctx.stroke();
-                
-                // Dessiner les barres
-                for (var i = 0; i < keys.length; i++) {
-                    var key = keys[i];
-                    var value = data[key];
                     
-                    var barHeight = (value / maxValue) * chartHeight;
-                    var barX = margin + i * (barWidth + barSpacing) + barSpacing / 2;
-                    var barY = height - margin - barHeight;
+                    doc.text('Nombre de répondants : ' + totalForQuestion, margin, yPos);
+                    yPos += 10;
                     
-                    // Barre
-                    ctx.fillStyle = colors[i % colors.length];
-                    ctx.fillRect(barX, barY, barWidth, barHeight);
-                    
-                    // Contour
-                    ctx.strokeStyle = '#2c3e50';
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(barX, barY, barWidth, barHeight);
-                    
-                    // Label en bas
-                    ctx.fillStyle = '#2c3e50';
-                    ctx.font = '12px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(key, barX + barWidth / 2, height - margin + 20);
-                    
-                    // Valeur au-dessus de la barre
-                    ctx.fillText(value.toString(), barX + barWidth / 2, barY - 10);
-                }
-                
-                // Échelle Y
-                ctx.fillStyle = '#666';
-                ctx.font = '10px Arial';
-                ctx.textAlign = 'right';
-                for (var i = 0; i <= 5; i++) {
-                    var yValue = (maxValue / 5) * i;
-                    var yPos = height - margin - (i / 5) * chartHeight;
-                    ctx.fillText(yValue.toFixed(1), margin - 10, yPos + 3);
-                    
-                    // Ligne de grille
-                    if (i > 0) {
-                        ctx.strokeStyle = '#e0e0e0';
-                        ctx.lineWidth = 1;
-                        ctx.beginPath();
-                        ctx.moveTo(margin, yPos);
-                        ctx.lineTo(width - margin, yPos);
-                        ctx.stroke();
-                    }
-                }
-                
-                debugLog('Graphique barres créé: ' + canvasId + ' (' + keys.length + ' barres)');
-                return true;
-                
-            } catch (error) {
-                debugLog('ERREUR createNativeBarChart: ' + error.toString());
-                return false;
-            }
-        }
-
-        // Gestion des fichiers (version simplifiée pour test)
-        function handleFileSelection(files) {
-            debugLog('Sélection de ' + files.length + ' fichiers');
-            
-            try {
-                var fileCountDiv = document.getElementById('fileCount');
-                if (fileCountDiv) {
-                    fileCountDiv.textContent = files.length + ' fichier(s) sélectionné(s)';
-                }
-                
-                var loadingDiv = document.getElementById('loading');
-                if (loadingDiv) {
-                    loadingDiv.style.display = 'block';
-                }
-                
-                // Simulation du traitement
-                setTimeout(function() {
-                    processFiles(files);
-                }, 500);
-                
-            } catch (error) {
-                debugLog('ERREUR handleFileSelection: ' + error.toString());
-            }
-        }
-
-        // Traitement des fichiers JSON
-        function processFiles(files) {
-            debugLog('Traitement des fichiers...');
-            
-            try {
-                analysisData.responses = [];
-                var validFiles = 0;
-                var errors = [];
-                var filesProcessed = 0;
-
-                function processNextFile(index) {
-                    if (index >= files.length) {
-                        finishProcessing(validFiles, errors);
-                        return;
-                    }
-
-                    var file = files[index];
-                    
-                    if (!file.name.toLowerCase().endsWith('.json')) {
-                        errors.push(file.name + ': Format non supporté');
-                        processNextFile(index + 1);
-                        return;
-                    }
-
-                    var reader = new FileReader();
-                    
-                    reader.onload = function(e) {
-                        try {
-                            var content = e.target.result;
-                            var data = JSON.parse(content);
+                    // Réponses détaillées
+                    if (data && Object.keys(data).length > 0) {
+                        var sortedData = Object.entries(data).sort(function(a, b) { return b[1] - a[1]; });
+                        
+                        for (var i = 0; i < sortedData.length; i++) {
+                            checkNewPage(8);
+                            var key = sortedData[i][0];
+                            var count = sortedData[i][1];
+                            var percentage = totalForQuestion > 0 ? ((count / totalForQuestion) * 100).toFixed(1) : '0.0';
                             
-                            if (!data.id) {
-                                errors.push(file.name + ': ID manquant');
-                            } else {
-                                analysisData.responses.push(data);
-                                validFiles++;
-                            }
-                        } catch (parseError) {
-                            errors.push(file.name + ': ' + parseError.toString());
+                            var displayText = formatDisplayText(key, fieldName);
+                            doc.text(' • ' + displayText + ': ' + count + ' réponse' + (count > 1 ? 's' : '') + ' (' + percentage + '%)', margin + 5, yPos);
+                            yPos += 6;
                         }
                         
-                        processNextFile(index + 1);
-                    };
+                        // Note moyenne si applicable
+                        if (fieldName === 'sante_physique' || fieldName === 'sante_psychologique') {
+                            var avgScore = fieldName === 'sante_physique' ? summary.avgPhysical : summary.avgPsych;
+                            doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+                            doc.text('Note moyenne : ' + avgScore + '/10', margin + 5, yPos);
+                            doc.setTextColor(0, 0, 0);
+                            yPos += 8;
+                        }
+                    } else {
+                        doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
+                        doc.text('Aucune réponse collectée pour cette question', margin + 5, yPos);
+                        doc.setTextColor(0, 0, 0);
+                        yPos += 8;
+                    }
                     
-                    reader.onerror = function() {
-                        errors.push(file.name + ': Erreur de lecture');
-                        processNextFile(index + 1);
-                    };
-                    
-                    reader.readAsText(file);
+                    yPos += 10;
                 }
 
-                processNextFile(0);
+                // Détails des questions
+                function getQuestionDetails(fieldName) {
+                    var questions = {
+                        'profil': { text: 'Quel est votre profil professionnel ?' },
+                        'age': { text: 'Dans quelle tranche d\'âge vous situez-vous ?' },
+                        'sante_physique': { text: 'Comment évaluez-vous votre santé physique actuelle ?' },
+                        'sante_psychologique': { text: 'Comment évaluez-vous votre santé psychologique actuelle ?' },
+                        'travail_extra': { text: 'À quelle fréquence travaillez-vous le soir et/ou le week-end ?' },
+                        'pression_echeances': { text: 'Ressentez-vous une pression liée aux échéances ?' },
+                        'gestion_pression': { text: 'Comment gérez-vous cette pression ?' },
+                        'charge_travail': { text: 'Votre charge de travail est-elle raisonnable ?' },
+                        'sources_stress': { text: 'Quelles sont vos principales sources de stress ? (Plusieurs réponses possibles)' },
+                        'symptomes_stress': { text: 'Ressentez-vous des symptômes physiques liés au stress ? (Plusieurs réponses possibles)' },
+                        'ergonomie_poste': { text: 'Votre poste de travail est-il adapté en termes d\'ergonomie ?' },
+                        'douleurs_poste': { text: 'Souffrez-vous de douleurs physiques liées à votre poste de travail ?' },
+                        'consultation_pro_sante': { text: 'Avez-vous déjà consulté un professionnel de santé pour un problème lié au travail ?' },
+                        'climat_social': { text: 'Comment jugez-vous le climat social dans votre cabinet ?' },
+                        'soutien_equipe': { text: 'Vous sentez-vous soutenu par vos collègues et votre hiérarchie ?' },
+                        'qvt': { text: 'Comment définiriez-vous votre qualité de vie au travail ?' },
+                        'offre_restauration': { text: 'Disposez-vous d\'une offre de restauration de qualité ?' },
+                        'temps_pause_dejeuner': { text: 'Combien de temps consacrez-vous à votre pause déjeuner ?' },
+                        'alimentation_saine': { text: 'Estimez-vous avoir une alimentation saine ?' },
+                        'grignotage': { text: 'Vous arrive-t-il de grignoter pendant votre temps de travail ?' },
+                        'heures_sommeil': { text: 'Combien d\'heures de sommeil avez-vous en moyenne par nuit ?' },
+                        'sommeil_suffisant': { text: 'Estimez-vous que votre temps de sommeil est suffisant ?' },
+                        'qualite_sommeil': { text: 'Comment qualifieriez-vous la qualité de votre sommeil ?' },
+                        'penser_travail_nuit': { text: 'Vous arrive-t-il de penser au travail pendant la nuit ?' },
+                        'activite_physique': { text: 'Pratiquez-vous une activité physique régulière ?' },
+                        'frequence_sport': { text: 'À quelle fréquence pratiquez-vous une activité physique ?' },
+                        'obstacles_sport': { text: 'Quels sont les obstacles à la pratique sportive ?' },
+                        'cabinet_facilite_sport': { text: 'Votre cabinet vous permet-il de pratiquer facilement une activité sportive ?' },
+                        'prevention_cabinet': { text: 'Votre cabinet a-t-il mis en place des actions de prévention santé ?' },
+                        'efficacite_prevention': { text: 'Comment avez-vous trouvé cette prévention ?' },
+                        'rythme_teletravail': { text: 'À quel rythme avez-vous recours au télétravail ?' },
+                        'ameliorations_prioritaires': { text: 'Quels seraient les 3 points les plus importants pour améliorer votre bien-être ?' },
+                        'commentaires_suggestions': { text: 'Avez-vous des commentaires ou suggestions ?' }
+                    };
+                    return questions[fieldName] || { text: 'Question non définie' };
+                }
+
+                // Formatage du texte d'affichage
+                function formatDisplayText(key, fieldName) {
+                    var mappings = {
+                        // Profils
+                        'auditeur': 'Auditeur/Auditrice',
+                        'chef_mission': 'Chef de mission',
+                        'directeur_mission': 'Directeur de mission',
+                        
+                        // Ages
+                        'moins_25': 'Moins de 25 ans',
+                        '25_30': 'Entre 25 et 30 ans',
+                        '30_40': 'Entre 30 et 40 ans',
+                        '40_50': 'Entre 40 et 50 ans',
+                        '50_60': 'Entre 50 et 60 ans',
+                        'plus_60': 'Plus de 60 ans',
+                        
+                        // Santé (notes)
+                        '1': 'Note 1/10', '2': 'Note 2/10', '3': 'Note 3/10', '4': 'Note 4/10',
+                        '5': 'Note 5/10', '6': 'Note 6/10', '7': 'Note 7/10', '8': 'Note 8/10',
+                        '9': 'Note 9/10', '10': 'Note 10/10',
+                        
+                        // Travail extra
+                        'jamais': 'Jamais',
+                        'plusieurs_fois_an': 'Plusieurs fois par an',
+                        'plusieurs_fois_mois': 'Plusieurs fois par mois',
+                        'plusieurs_fois_semaine': 'Plusieurs fois par semaine',
+                        
+                        // Pression échéances
+                        'rarement': 'Rarement',
+                        'souvent': 'Souvent',
+                        'tres_regulierement': 'Très régulièrement',
+                        
+                        // Gestion pression
+                        'tres_bien': 'Très bien',
+                        'bien': 'Bien',
+                        'moyennement': 'Moyennement',
+                        'difficilement': 'Difficilement',
+                        'tres_difficilement': 'Très difficilement',
+                        
+                        // Sources de stress
+                        'gestion_clients': 'Gestion des clients',
+                        'complexite_dossiers': 'Complexité des dossiers',
+                        'tenue_delais': 'Tenue des délais',
+                        'outils_inefficaces': 'Outils inefficaces',
+                        'pression_hierarchique': 'Pression hiérarchique',
+                        'horaires_contraintes': 'Contraintes horaires',
+                        'manque_formation': 'Manque de formation',
+                        'pas_stresse': 'Pas de stress',
+                        
+                        // Symptômes stress
+                        'fatigue': 'Fatigue',
+                        'troubles_sommeil': 'Troubles du sommeil',
+                        'maux_tete': 'Maux de tête, migraines',
+                        'tensions_musculaires': 'Tensions musculaires',
+                        'problemes_digestifs': 'Problèmes digestifs',
+                        'troubles_alimentaires': 'Troubles alimentaires',
+                        
+                        // Ergonomie
+                        'oui_totalement': 'Oui, totalement',
+                        'oui_en_partie': 'Oui, en partie',
+                        'non_pas_vraiment': 'Non, pas vraiment',
+                        'non_pas_du_tout': 'Non, pas du tout',
+                        
+                        // Soutien équipe
+                        'oui_collegues_hierarchie': 'Oui, par les collègues et la hiérarchie',
+                        'oui_uniquement_collegues': 'Oui, uniquement par mes collègues',
+                        'oui_uniquement_hierarchie': 'Oui, uniquement par ma hiérarchie',
+                        
+                        // QVT
+                        'excellente': 'Excellente',
+                        'bonne': 'Bonne',
+                        'correcte': 'Correcte',
+                        'decevante': 'Décevante',
+                        'nocive': 'Nocive',
+                        
+                        // Temps pause déjeuner
+                        'plus_1h': 'Plus d\'une heure',
+                        '30min_1h': 'Entre 30 minutes et une heure',
+                        'moins_30min': 'Moins de 30 minutes',
+                        'au_poste': 'À mon poste de travail',
+                        
+                        // Heures sommeil
+                        'moins_5h': 'Moins de 5 heures',
+                        'environ_5h': 'Environ 5 heures',
+                        'environ_6h': 'Environ 6 heures',
+                        'environ_7h': 'Environ 7 heures',
+                        'environ_8h': 'Environ 8 heures',
+                        'plus_8h': 'Plus de 8 heures',
+                        
+                        // Qualité sommeil
+                        'correct_qualite': 'Correct et de qualité',
+                        'perturbe': 'Perturbé',
+                        'tres_mauvais': 'Très mauvais',
+                        
+                        // Fréquence sport
+                        'plusieurs_fois_semaine': 'Plusieurs fois par semaine',
+                        'toutes_semaines': 'Toutes les semaines',
+                        'quelques_fois_mois': 'Quelques fois par mois',
+                        
+                        // Obstacles sport
+                        'manque_temps': 'Manque de temps',
+                        'manque_motivation': 'Manque de motivation',
+                        'forme_insuffisante': 'Forme physique insuffisante',
+                        'autres_raisons': 'Autres raisons',
+                        
+                        // Efficacité prévention
+                        'interessante': 'Intéressante',
+                        'utile_effets': 'Utile et suivie d\'effets',
+                        'inutile': 'Inutile',
+                        
+                        // Télétravail
+                        'jamais_cabinet_interdit': 'Jamais, le cabinet ne le permet pas',
+                        'jamais_choix': 'Jamais ou peu, mais c\'est mon choix',
+                        '1j_semaine': '1 jour par semaine en moyenne',
+                        '2j_semaine': '2 jours par semaine en moyenne',
+                        'plus_2j_semaine': 'Plus de 2 jours par semaine',
+                        '100_pourcent': '100% en télétravail',
+                        
+                        // Améliorations prioritaires
+                        'organisation_charge_travail': 'Organisation et charge de travail',
+                        'gestion_stress': 'Gestion du stress et bien-être',
+                        'environnement_travail': 'Environnement de travail, ergonomie',
+                        'perspectives_avenir': 'Perspectives d\'avenir',
+                        'qualite_restauration': 'Qualité de l\'offre de restauration',
+                        'acces_activite_sportive': 'Accès à une activité sportive',
+                        'qualite_vie_travail': 'Qualité de vie au travail',
+                        
+                        // Climat social
+                        'tres_bon': 'Très bon',
+                        'bon': 'Bon',
+                        'correct': 'Correct',
+                        'difficile': 'Difficile',
+                        'tres_difficile': 'Très difficile',
+                        
+                        // Charge de travail
+                        'oui': 'Oui, raisonnable',
+                        'non': 'Non, pas raisonnable',
+                        
+                        // Prévention
+                        'ne_sais_pas': 'Je ne sais pas'
+                    };
+                    
+                    return mappings[key] || key;
+                }
+
+                // Génération du rapport complet
+                createTitlePage();
                 
-            } catch (error) {
-                debugLog('ERREUR processFiles: ' + error.toString());
-            }
-        }
+                doc.addPage();
+                pageNumber++;
+                yPos = 30;
+                addFooter(doc, pageNumber, pageWidth, pageHeight);
 
-        // Finalisation du traitement
-        function finishProcessing(validFiles, errors) {
-            debugLog('Finalisation: ' + validFiles + ' fichiers valides, ' + errors.length + ' erreurs');
-            
-            try {
-                var loadingDiv = document.getElementById('loading');
-                if (loadingDiv) {
-                    loadingDiv.style.display = 'none';
+                // Génération de toutes les questions avec données
+                var questionCounter = 1;
+                var allFields = [
+                    { name: 'profil', title: 'PROFIL PROFESSIONNEL', data: summary.profils },
+                    { name: 'age', title: 'TRANCHE D\'AGE', data: summary.ages },
+                    { name: 'sante_physique', title: 'SANTE PHYSIQUE', data: analyzeScoreField(responses, 'sante_physique') },
+                    { name: 'sante_psychologique', title: 'SANTE PSYCHOLOGIQUE', data: analyzeScoreField(responses, 'sante_psychologique') },
+                    { name: 'travail_extra', title: 'TRAVAIL HORS HORAIRES', data: analyzeField(responses, 'travail_extra') },
+                    { name: 'pression_echeances', title: 'PRESSION ECHEANCES', data: analyzeField(responses, 'pression_echeances') },
+                    { name: 'gestion_pression', title: 'GESTION PRESSION', data: analyzeField(responses, 'gestion_pression') },
+                    { name: 'charge_travail', title: 'CHARGE DE TRAVAIL', data: analyzeField(responses, 'charge_travail') },
+                    { name: 'sources_stress', title: 'SOURCES DE STRESS', data: summary.stressSources },
+                    { name: 'symptomes_stress', title: 'SYMPTOMES DE STRESS', data: analyzeMultipleChoiceField(responses, 'symptomes_stress') },
+                    { name: 'ergonomie_poste', title: 'ERGONOMIE POSTE DE TRAVAIL', data: analyzeField(responses, 'ergonomie_poste') },
+                    { name: 'douleurs_poste', title: 'DOULEURS PHYSIQUES', data: analyzeField(responses, 'douleurs_poste') },
+                    { name: 'consultation_pro_sante', title: 'CONSULTATION PROFESSIONNEL SANTE', data: analyzeField(responses, 'consultation_pro_sante') },
+                    { name: 'climat_social', title: 'CLIMAT SOCIAL', data: analyzeField(responses, 'climat_social') },
+                    { name: 'soutien_equipe', title: 'SOUTIEN EQUIPE', data: analyzeField(responses, 'soutien_equipe') },
+                    { name: 'qvt', title: 'QUALITE DE VIE AU TRAVAIL', data: analyzeField(responses, 'qvt') },
+                    { name: 'offre_restauration', title: 'OFFRE RESTAURATION', data: analyzeField(responses, 'offre_restauration') },
+                    { name: 'temps_pause_dejeuner', title: 'TEMPS PAUSE DEJEUNER', data: analyzeField(responses, 'temps_pause_dejeuner') },
+                    { name: 'alimentation_saine', title: 'ALIMENTATION SAINE', data: analyzeField(responses, 'alimentation_saine') },
+                    { name: 'grignotage', title: 'GRIGNOTAGE', data: analyzeField(responses, 'grignotage') },
+                    { name: 'heures_sommeil', title: 'HEURES DE SOMMEIL', data: analyzeField(responses, 'heures_sommeil') },
+                    { name: 'sommeil_suffisant', title: 'SOMMEIL SUFFISANT', data: analyzeField(responses, 'sommeil_suffisant') },
+                    { name: 'qualite_sommeil', title: 'QUALITE SOMMEIL', data: analyzeField(responses, 'qualite_sommeil') },
+                    { name: 'penser_travail_nuit', title: 'PENSER TRAVAIL LA NUIT', data: analyzeField(responses, 'penser_travail_nuit') },
+                    { name: 'activite_physique', title: 'ACTIVITE PHYSIQUE', data: analyzeField(responses, 'activite_physique') },
+                    { name: 'frequence_sport', title: 'FREQUENCE SPORT', data: analyzeField(responses, 'frequence_sport') },
+                    { name: 'obstacles_sport', title: 'OBSTACLES SPORT', data: analyzeMultipleChoiceField(responses, 'obstacles_sport') },
+                    { name: 'cabinet_facilite_sport', title: 'CABINET FACILITE SPORT', data: analyzeField(responses, 'cabinet_facilite_sport') },
+                    { name: 'prevention_cabinet', title: 'PREVENTION CABINET', data: analyzeField(responses, 'prevention_cabinet') },
+                    { name: 'efficacite_prevention', title: 'EFFICACITE PREVENTION', data: analyzeField(responses, 'efficacite_prevention') },
+                    { name: 'rythme_teletravail', title: 'RYTHME TELETRAVAIL', data: analyzeField(responses, 'rythme_teletravail') },
+                    { name: 'ameliorations_prioritaires', title: 'AMELIORATIONS PRIORITAIRES', data: analyzeMultipleChoiceField(responses, 'ameliorations_prioritaires') }
+                ];
+
+                for (var i = 0; i < allFields.length; i++) {
+                    var field = allFields[i];
+                    createQuestionSection(questionCounter, field.title, field.data, field.name);
+                    questionCounter++;
                 }
 
-                var fileCountDiv = document.getElementById('fileCount');
-                if (fileCountDiv) {
-                    fileCountDiv.textContent = validFiles + ' fichier(s) traité(s) avec succès';
-                }
-
-                if (errors.length > 0) {
-                    var errorDiv = document.getElementById('errorMessage');
-                    if (errorDiv) {
-                        errorDiv.innerHTML = '<strong>Erreurs:</strong><br>' + errors.join('<br>');
-                        errorDiv.style.display = 'block';
+                // Section commentaires si disponibles
+                var allComments = [];
+                for (var i = 0; i < responses.length; i++) {
+                    if (responses[i].commentaires_suggestions && responses[i].commentaires_suggestions.trim()) {
+                        allComments.push(responses[i].commentaires_suggestions);
                     }
                 }
 
-                if (validFiles > 0) {
-                    updateStatus('data-status', validFiles + ' fichier(s) analysé(s) ✓');
-                    analyzeData();
-                    displayResults();
-                }
-                
-            } catch (error) {
-                debugLog('ERREUR finishProcessing: ' + error.toString());
-            }
-        }
-
-        // Génération PDF simplifiée
-        function generatePDF() {
-            debugLog('Tentative génération PDF...');
-            
-            try {
-                // Version basique sans bibliothèque
-                var content = 'Rapport Baromètre Santé 2025\n\n';
-                content += 'Total réponses: ' + (analysisData.summary ? analysisData.summary.total : 'N/A') + '\n';
-                content += 'Date: ' + new Date().toLocaleDateString('fr-FR') + '\n';
-                
-                // Téléchargement sous forme de fichier texte
-                var blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-                var link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = 'rapport_barometre_sante_2025.txt';
-                link.click();
-                
-                debugLog('Rapport texte généré');
-                
-            } catch (error) {
-                debugLog('ERREUR generatePDF: ' + error.toString());
-            }
-        }
-
-        // Initialisation de l'application
-        function initializeApp() {
-            debugLog('Initialisation de l\'application...');
-            
-            try {
-                updateStatus('app-status', 'Démarrage...');
-                
-                // Configuration des événements
-                var selectButton = document.getElementById('selectButton');
-                var fileInput = document.getElementById('fileInput');
-                var pdfButton = document.getElementById('pdfButton');
-                var testCanvasBtn = document.getElementById('testCanvas');
-                var testDataBtn = document.getElementById('testData');
-                var showResultsBtn = document.getElementById('showResults');
-                
-                if (selectButton && fileInput) {
-                    selectButton.onclick = function() {
-                        debugLog('Bouton sélection fichier cliqué');
-                        fileInput.click();
-                    };
+                if (allComments.length > 0) {
+                    checkNewPage(30);
+                    doc.setFillColor(lightBlue[0], lightBlue[1], lightBlue[2]);
+                    doc.rect(margin, yPos, pageWidth - 2*margin, 8, 'F');
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(14);
+                    doc.text('COMMENTAIRES ET SUGGESTIONS', margin + 5, yPos + 6);
+                    yPos += 20;
                     
-                    fileInput.onchange = function(event) {
-                        handleFileSelection(event.target.files);
-                    };
-                }
-                
-                if (pdfButton) {
-                    pdfButton.onclick = generatePDF;
-                }
-                
-                if (testCanvasBtn) {
-                    testCanvasBtn.onclick = testCanvas;
-                }
-                
-                if (testDataBtn) {
-                    testDataBtn.onclick = function() {
-                        generateTestData();
-                    };
-                }
-                
-                if (showResultsBtn) {
-                    showResultsBtn.onclick = function() {
-                        var resultsSection = document.getElementById('resultsSection');
-                        if (resultsSection) {
-                            resultsSection.style.display = 'block';
-                            debugLog('Section résultats forcée visible');
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFontSize(10);
+                    
+                    for (var i = 0; i < allComments.length; i++) {
+                        checkNewPage(20);
+                        doc.text('Commentaire ' + (i + 1) + ':', margin, yPos);
+                        yPos += 6;
+                        
+                        var lines = doc.splitTextToSize(allComments[i], pageWidth - 2*margin - 10);
+                        for (var j = 0; j < lines.length; j++) {
+                            checkNewPage(6);
+                            doc.text(lines[j], margin + 5, yPos);
+                            yPos += 5;
                         }
-                    };
+                        yPos += 10;
+                    }
                 }
-                
-                updateStatus('app-status', 'Prêt ✓');
-                debugLog('Application initialisée avec succès');
-                
-                // Test automatique du Canvas
-                setTimeout(function() {
-                    testCanvas();
-                }, 1000);
+
+                // Fonction utilitaire pour analyser les scores numériques
+                function analyzeScoreField(responses, fieldName) {
+                    var counts = {};
+                    for (var i = 0; i < responses.length; i++) {
+                        var value = responses[i][fieldName];
+                        if (value !== undefined && value !== null && value !== '') {
+                            counts[value] = (counts[value] || 0) + 1;
+                        }
+                    }
+                    return counts;
+                }
+
+                // Mise à jour du nombre total de pages
+                var totalPages = doc.internal.getNumberOfPages();
+                for (var i = 1; i <= totalPages; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(8);
+                    doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
+                    
+                    // Effacer l'ancien texte et réécrire avec le bon nombre de pages
+                    doc.rect(pageWidth - margin - 20, pageHeight - 15, 20, 10, 'F');
+                    doc.text('Page ' + i + '/' + totalPages, pageWidth - margin, pageHeight - 10, { align: 'right' });
+                }
+
+                // Sauvegarde
+                var fileName = 'barometre_sante_rapport_complet_' + summary.dateAnalyse.replace(/\//g, '-') + '.pdf';
+                doc.save(fileName);
                 
             } catch (error) {
-                debugLog('ERREUR initializeApp: ' + error.toString());
-                updateStatus('app-status', 'Erreur: ' + error.message);
+                handleError(error, 'generatePDF');
             }
         }
 
-        // Démarrage automatique
-        document.addEventListener('DOMContentLoaded', function() {
-            debugLog('DOM chargé');
-            initializeApp();
-        });
-
-        // Fallback si DOMContentLoaded a déjà été déclenché
+        // Initialisation au chargement de la page
         if (document.readyState === 'loading') {
-            debugLog('DOM en cours de chargement');
+            document.addEventListener('DOMContentLoaded', initializeApp);
         } else {
-            debugLog('DOM déjà chargé, initialisation immédiate');
-            setTimeout(initializeApp, 100);
+            initializeApp();
         }
     </script>
 </body>
