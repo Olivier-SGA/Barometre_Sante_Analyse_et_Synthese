@@ -1,232 +1,486 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Consolidation Baromètre Santé 2025</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Consolidation Baromètre Santé 2025</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { text-align: center; margin-bottom: 40px; background: #fff; padding: 30px;
+      border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,.1); }
+    .header h1 { color: #2c3e50; font-size: 2.5rem; margin-bottom: 10px; }
 
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
+    .upload-section { background: #fff; padding: 30px; border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.1); margin-bottom: 30px; }
+    .file-input-wrapper { border: 2px dashed #3498db; border-radius: 10px; padding: 40px;
+      text-align: center; cursor: pointer; background: #f8f9fa; transition: .2s; }
+    .file-input-wrapper.dragover { background: #e8f4ff; border-color: #1d7fd6; }
+    .file-input { display: none; }
+    .upload-btn { background: #3498db; color: #fff; border: none; padding: 15px 30px;
+      border-radius: 25px; cursor: pointer; font-size: 1.1rem; margin: 10px; }
+    .file-count { margin-top: 20px; font-weight: bold; color: #27ae60; }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
+    .results-section { background: #fff; padding: 30px; border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.1); margin-bottom: 30px; display: none; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px; margin-bottom: 40px; }
+    .stat-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff; padding: 25px; border-radius: 12px; text-align: center; }
+    .stat-number { font-size: 2.5rem; font-weight: bold; display: block; margin-bottom: 8px; }
 
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        }
+    .btn { padding: 12px 25px; border: none; border-radius: 25px; cursor: pointer;
+      font-size: 1rem; font-weight: 600; margin: 10px; }
+    .btn-primary { background: #e74c3c; color: #fff; }
+    .btn-secondary { background: #27ae60; color: #fff; }
 
-        .header h1 {
-            color: #2c3e50;
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-        }
+    .error-message { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24;
+      padding: 15px; border-radius: 8px; margin-bottom: 20px; display: none; }
 
-        .upload-section {
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-        }
+    .loading { display: none; text-align: center; padding: 40px; background: #fff;
+      border-radius: 15px; margin-bottom: 30px; }
 
-        .file-input-wrapper {
-            border: 2px dashed #3498db;
-            border-radius: 10px;
-            padding: 40px;
-            text-align: center;
-            cursor: pointer;
-            background: #f8f9fa;
-        }
+    .detailed-results { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-top: 20px; }
 
-        .file-input {
-            display: none;
-        }
-
-        .upload-btn {
-            background: #3498db;
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 25px;
-            cursor: pointer;
-            font-size: 1.1rem;
-            margin: 10px;
-        }
-
-        .file-count {
-            margin-top: 20px;
-            font-weight: bold;
-            color: #27ae60;
-        }
-
-        .results-section {
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-            display: none;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 40px;
-        }
-
-        .stat-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 25px;
-            border-radius: 12px;
-            text-align: center;
-        }
-
-        .stat-number {
-            font-size: 2.5rem;
-            font-weight: bold;
-            display: block;
-            margin-bottom: 8px;
-        }
-
-        .btn {
-            padding: 12px 25px;
-            border: none;
-            border-radius: 25px;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: 600;
-            margin: 10px;
-        }
-
-        .btn-primary {
-            background: #e74c3c;
-            color: white;
-        }
-
-        .btn-secondary {
-            background: #27ae60;
-            color: white;
-        }
-
-        .error-message {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 40px;
-            background: white;
-            border-radius: 15px;
-            margin-bottom: 30px;
-        }
-
-        .detailed-results {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-top: 20px;
-        }
-    </style>
+    /* Ancienne placeholder (inutile visuellement mais inoffensive) */
+    .chart-placeholder { background: #e9ecef; border: 2px dashed #6c757d; height: 300px;
+      display: flex; align-items: center; justify-content: center; margin: 20px 0; border-radius: 8px; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>Consolidation Baromètre Santé 2025</h1>
-            <p>Interface d'analyse et de génération de rapports</p>
-        </div>
-
-        <div class="upload-section">
-            <h2>Import des fichiers JSON</h2>
-            <div class="file-input-wrapper" id="dropZone">
-                <p><strong>Cliquez ici pour sélectionner vos fichiers JSON</strong></p>
-                <input type="file" id="fileInput" class="file-input" multiple accept=".json">
-                <button class="upload-btn" id="selectButton">Choisir les fichiers</button>
-            </div>
-            <div id="fileCount" class="file-count"></div>
-        </div>
-
-        <div class="error-message" id="errorMessage"></div>
-
-        <div class="loading" id="loading">
-            <p>Traitement des données en cours...</p>
-        </div>
-
-        <div class="results-section" id="resultsSection">
-            <h2>Résultats de l'analyse</h2>
-            
-            <div style="margin-bottom: 20px;">
-                <button class="btn btn-primary" id="pdfButton">Générer rapport PDF</button>
-                <button class="btn btn-secondary" onclick="window.print()">Imprimer</button>
-            </div>
-
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <span class="stat-number" id="totalResponses">0</span>
-                    <span>Réponses analysées</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-number" id="avgPhysicalHealth">-</span>
-                    <span>Santé physique moyenne</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-number" id="avgPsychHealth">-</span>
-                    <span>Santé psychologique moyenne</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-number" id="stressPercentage">-</span>
-                    <span>Avec charge de travail élevée</span>
-                </div>
-            </div>
-
-            <div class="detailed-results" id="detailedResults">
-                <!-- Résultats détaillés -->
-            </div>
-
-            <!-- 🚫 Blocs graphiques supprimés -->
-
-            <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                <h4>Status du système :</h4>
-                <div id="system-status">
-                    <p>Chart.js : <span id="chartjs-status">Chargement...</span></p>
-                    <p>jsPDF : <span id="jspdf-status">Chargement...</span></p>
-                    <p>Données : <span id="data-status">Aucune donnée importée</span></p>
-                </div>
-            </div>
-        </div>
+  <div class="container">
+    <div class="header">
+      <h1>Consolidation Baromètre Santé 2025</h1>
+      <p>Interface d'analyse et de génération de rapports</p>
     </div>
 
-    <script>
-        // 🔹 Ici, on garde tout ton script complet (gestion fichiers, analyse, PDF)
-        // Rien n’est supprimé, seulement les graphiques ne sont plus dans le HTML.
-        // 👉 Copie-colle intégralement ton script d’origine ici
-    </script>
-</body>
-</html>
+    <div class="upload-section">
+      <h2>Import des fichiers JSON</h2>
+      <div class="file-input-wrapper" id="dropZone" tabindex="0" aria-label="Zone d'import JSON">
+        <p><strong>Cliquez ici pour sélectionner vos fichiers JSON</strong></p>
+        <input type="file" id="fileInput" class="file-input" multiple accept=".json"/>
+        <button class="upload-btn" id="selectButton" type="button">Choisir les fichiers</button>
+      </div>
+      <div id="fileCount" class="file-count"></div>
+    </div>
+
+    <div class="error-message" id="errorMessage"></div>
+
+    <div class="loading" id="loading">
+      <p>Traitement des données en cours...</p>
+    </div>
+
+    <div class="results-section" id="resultsSection">
+      <h2>Résultats de l'analyse</h2>
+
+      <div style="margin-bottom: 20px;">
+        <button class="btn btn-primary" id="pdfButton" type="button">Générer rapport PDF</button>
+        <button class="btn btn-secondary" type="button" onclick="window.print()">Imprimer</button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-number" id="totalResponses">0</span>
+          <span>Réponses analysées</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number" id="avgPhysicalHealth">-</span>
+          <span>Santé physique moyenne</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number" id="avgPsychHealth">-</span>
+          <span>Santé psychologique moyenne</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number" id="stressPercentage">-</span>
+          <span>Avec charge de travail élevée</span>
+        </div>
+      </div>
+
+      <div class="detailed-results" id="detailedResults">
+        <!-- Résultats détaillés -->
+      </div>
+
+      <!-- 🚫 Blocs graphiques supprimés : profilChart, ageChart, healthChart, stressChart -->
+
+      <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <h4>Status du système :</h4>
+        <div id="system-status">
+          <p>Chart.js : <span id="chartjs-status">Chargement...</span></p>
+          <p>jsPDF : <span id="jspdf-status">Chargement...</span></p>
+          <p>Données : <span id="data-status">Aucune donnée importée</span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---------- État global ----------
+    var analysisData = { responses: [], summary: {} };
+    var librariesLoaded = { chartjs: false, jspdf: false };
+
+    // ---------- Utils ----------
+    function safeLog(msg){ try{ console.log(msg); }catch(_){} }
+    function handleError(error, context){
+      safeLog('Erreur dans ' + context + ': ' + error.toString());
+      var errorDiv = document.getElementById('errorMessage');
+      if(errorDiv){ errorDiv.innerHTML = '<strong>Erreur:</strong> ' + error.toString(); errorDiv.style.display='block'; }
+    }
+    function setText(id, text){
+      var el = document.getElementById(id);
+      if(el) el.textContent = text;
+    }
+
+    // ---------- Init ----------
+    function initializeApp(){
+      try{
+        safeLog('Initialisation...');
+        var selectButton = document.getElementById('selectButton');
+        var fileInput = document.getElementById('fileInput');
+        var pdfButton = document.getElementById('pdfButton');
+        var dropZone = document.getElementById('dropZone');
+
+        if(selectButton && fileInput){
+          selectButton.onclick = function(){ fileInput.click(); };
+          fileInput.onchange = function(e){ handleFileSelection(e.target.files); };
+        }
+        if(pdfButton){ pdfButton.onclick = function(){ generatePDF(); }; }
+
+        // Drag & Drop (robuste mais optionnel)
+        if(dropZone){
+          ['dragenter','dragover'].forEach(function(evt){
+            dropZone.addEventListener(evt, function(e){ e.preventDefault(); e.stopPropagation(); dropZone.classList.add('dragover'); });
+          });
+          ['dragleave','drop'].forEach(function(evt){
+            dropZone.addEventListener(evt, function(e){ e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('dragover'); });
+          });
+          dropZone.addEventListener('drop', function(e){
+            var dt = e.dataTransfer;
+            if(dt && dt.files) handleFileSelection(dt.files);
+          });
+          dropZone.addEventListener('click', function(){
+            if(fileInput) fileInput.click();
+          });
+        }
+
+        loadExternalLibraries();
+        safeLog('Application initialisée');
+      }catch(e){ handleError(e,'initializeApp'); }
+    }
+
+    // ---------- Libs externes ----------
+    function loadExternalLibraries(){
+      try{
+        // Chart.js (gardé pour compat, même si non utilisé à l'écran)
+        loadScript('https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js', function(){
+          librariesLoaded.chartjs = true;
+          setText('chartjs-status','OK');
+          safeLog('Chart.js chargé');
+        });
+
+        // jsPDF
+        loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', function(){
+          librariesLoaded.jspdf = true;
+          setText('jspdf-status','OK');
+          safeLog('jsPDF chargé');
+        });
+      }catch(e){ handleError(e,'loadExternalLibraries'); }
+    }
+
+    function loadScript(url, callback){
+      try{
+        var script = document.createElement('script');
+        script.src = url;
+        script.onload = function(){ if(callback) callback(); };
+        script.onerror = function(){ safeLog('Impossible de charger: ' + url); };
+        document.head.appendChild(script);
+      }catch(e){ handleError(e,'loadScript'); }
+    }
+
+    // ---------- Import fichiers ----------
+    function handleFileSelection(files){
+      try{
+        if(!files || files.length===0) return;
+        setText('data-status','Import en cours...');
+        safeLog('Traitement de ' + files.length + ' fichiers');
+
+        var fileCountDiv = document.getElementById('fileCount');
+        if(fileCountDiv) fileCountDiv.textContent = files.length + ' fichier(s) sélectionné(s)';
+
+        var loadingDiv = document.getElementById('loading');
+        if(loadingDiv) loadingDiv.style.display = 'block';
+
+        setTimeout(function(){ processFiles(files); }, 50);
+      }catch(e){ handleError(e,'handleFileSelection'); }
+    }
+
+    function processFiles(files){
+      try{
+        analysisData.responses = [];
+        var validFiles = 0;
+        var errors = [];
+
+        function processNext(index){
+          if(index >= files.length){ finishProcessing(validFiles, errors); return; }
+          var file = files[index];
+          if(!file.name.toLowerCase().endsWith('.json')){
+            errors.push(file.name + ' : Format non supporté'); return processNext(index+1);
+          }
+          var reader = new FileReader();
+          reader.onload = function(e){
+            try{
+              var content = e.target.result;
+              var data = JSON.parse(content);
+              if(!data.id){
+                errors.push(file.name + ' : ID manquant');
+              }else{
+                cleanDataDuplicates(data);
+                analysisData.responses.push(data);
+                validFiles++;
+              }
+            }catch(parseErr){ errors.push(file.name + ' : ' + parseErr.toString()); }
+            processNext(index+1);
+          };
+          reader.onerror = function(){ errors.push(file.name + ' : Erreur de lecture'); processNext(index+1); };
+          reader.readAsText(file);
+        }
+        processNext(0);
+      }catch(e){ handleError(e,'processFiles'); }
+    }
+
+    function finishProcessing(validFiles, errors){
+      try{
+        var loadingDiv = document.getElementById('loading');
+        if(loadingDiv) loadingDiv.style.display='none';
+
+        var fileCountDiv = document.getElementById('fileCount');
+        if(fileCountDiv) fileCountDiv.textContent = validFiles + ' fichier(s) traité(s) avec succès';
+
+        if(errors.length>0){
+          var errorDiv = document.getElementById('errorMessage');
+          if(errorDiv){
+            errorDiv.innerHTML = '<strong>Erreurs:</strong><br>' + errors.join('<br>');
+            errorDiv.style.display = 'block';
+          }
+        }
+
+        if(validFiles>0){
+          setText('data-status','Données importées ('+validFiles+')');
+          analyzeData();
+          displayResults();
+        }else{
+          setText('data-status','Aucune donnée importée');
+        }
+      }catch(e){ handleError(e,'finishProcessing'); }
+    }
+
+    function cleanDataDuplicates(data){
+      try{
+        var fields = ['sources_stress','symptomes_stress','obstacles_sport','ameliorations_prioritaires'];
+        for(var i=0;i<fields.length;i++){
+          var f = fields[i];
+          if(Array.isArray(data[f])){
+            var unique = [];
+            for(var j=0;j<data[f].length;j++){
+              var v = data[f][j];
+              if(v && unique.indexOf(v)===-1) unique.push(v);
+            }
+            data[f]=unique;
+          }
+        }
+      }catch(e){ handleError(e,'cleanDataDuplicates'); }
+    }
+
+    // ---------- Analyse ----------
+    function analyzeData(){
+      try{
+        var responses = analysisData.responses;
+        var summary = {};
+        summary.total = responses.length;
+        summary.dateAnalyse = new Date().toLocaleDateString('fr-FR');
+
+        var physicalScores = [], psychScores = [];
+        for(var i=0;i<responses.length;i++){
+          var r = responses[i];
+          var physical = parseFloat(r.sante_physique);
+          if(!isNaN(physical) && physical>0 && physical<=10) physicalScores.push(physical);
+          var psych = parseFloat(r.sante_psychologique);
+          if(!isNaN(psych) && psych>0 && psych<=10) psychScores.push(psych);
+        }
+        summary.avgPhysical = physicalScores.length>0 ?
+          (physicalScores.reduce((a,b)=>a+b,0)/physicalScores.length).toFixed(1) : 'N/A';
+        summary.avgPsych = psychScores.length>0 ?
+          (psychScores.reduce((a,b)=>a+b,0)/psychScores.length).toFixed(1) : 'N/A';
+
+        var workloadIssues = 0;
+        for(var k=0;k<responses.length;k++){
+          if(responses[k].charge_travail === 'non') workloadIssues++;
+        }
+        if(responses.length>0){
+          summary.workloadPercentage = ((workloadIssues/responses.length)*100).toFixed(0);
+        }else{
+          summary.workloadPercentage = '0';
+        }
+
+        summary.profils = analyzeField(responses,'profil');
+        summary.ages = analyzeField(responses,'age');
+        summary.stressSources = analyzeMultipleChoiceField(responses,'sources_stress');
+
+        analysisData.summary = summary;
+        safeLog('Analyse terminée');
+      }catch(e){ handleError(e,'analyzeData'); }
+    }
+
+    function analyzeField(responses, fieldName){
+      var counts = {};
+      for(var i=0;i<responses.length;i++){
+        var value = responses[i][fieldName] || 'Non renseigné';
+        counts[value] = (counts[value]||0)+1;
+      }
+      return counts;
+    }
+
+    function analyzeMultipleChoiceField(responses, fieldName){
+      var counts = {};
+      for(var i=0;i<responses.length;i++){
+        var values = responses[i][fieldName];
+        if(Array.isArray(values)){
+          for(var j=0;j<values.length;j++){
+            var v = values[j];
+            if(v) counts[v] = (counts[v]||0)+1;
+          }
+        }
+      }
+      return counts;
+    }
+
+    // ---------- Affichage ----------
+    function displayResults(){
+      try{
+        var summary = analysisData.summary;
+        setText('totalResponses', summary.total);
+        setText('avgPhysicalHealth', summary.avgPhysical);
+        setText('avgPsychHealth', summary.avgPsych);
+        setText('stressPercentage', summary.workloadPercentage + '%');
+
+        displayDetailedResults();
+
+        var resultsSection = document.getElementById('resultsSection');
+        if(resultsSection) resultsSection.style.display='block';
+      }catch(e){ handleError(e,'displayResults'); }
+    }
+
+    function displayDetailedResults(){
+      try{
+        var summary = analysisData.summary;
+        var container = document.getElementById('detailedResults');
+        if(!container) return;
+
+        var html = '<h3>Analyse détaillée</h3>';
+
+        html += '<h4>Répartition par profil :</h4><ul>';
+        for(var key in summary.profils){
+          var c = summary.profils[key];
+          var p = summary.total>0 ? ((c/summary.total)*100).toFixed(1) : '0.0';
+          html += '<li>'+ key + ': ' + c + ' ('+ p +'%)</li>';
+        }
+        html += '</ul>';
+
+        html += '<h4>Répartition par âge :</h4><ul>';
+        for(var key2 in summary.ages){
+          var c2 = summary.ages[key2];
+          var p2 = summary.total>0 ? ((c2/summary.total)*100).toFixed(1) : '0.0';
+          html += '<li>'+ key2 + ': ' + c2 + ' ('+ p2 +'%)</li>';
+        }
+        html += '</ul>';
+
+        if(summary.stressSources){
+          html += '<h4>Sources de stress :</h4><ul>';
+          var arr = [];
+          for(var k in summary.stressSources){ arr.push({key:k, count:summary.stressSources[k]}); }
+          arr.sort(function(a,b){ return b.count - a.count; });
+          for(var i=0;i<Math.min(10, arr.length); i++){
+            var item = arr[i];
+            var displayKey = formatStressSource(item.key);
+            html += '<li>' + displayKey + ': ' + item.count + ' mentions</li>';
+          }
+          html += '</ul>';
+        }
+        container.innerHTML = html;
+      }catch(e){ handleError(e,'displayDetailedResults'); }
+    }
+
+    function formatStressSource(key){
+      var mapping = {
+        'gestion_clients': 'Gestion des clients',
+        'complexite_dossiers': 'Complexité des dossiers',
+        'tenue_delais': 'Tenue des délais',
+        'pression_hierarchique': 'Pression hiérarchique',
+        'outils_inefficaces': 'Outils inefficaces',
+        'horaires_contraintes': 'Contraintes horaires',
+        'manque_formation': 'Manque de formation',
+        'pas_stresse': 'Pas de stress'
+      };
+      return mapping[key] || key;
+    }
+
+    // ---------- PDF ----------
+    function generatePDF(){
+      try{
+        if(!librariesLoaded.jspdf || !(window.jspdf && window.jspdf.jsPDF)){
+          alert("La génération PDF n'est pas disponible (jsPDF non chargé)");
+          return;
+        }
+        var jsPDF = window.jspdf.jsPDF;
+        var doc = new jsPDF();
+        var summary = analysisData.summary;
+        var responses = analysisData.responses;
+
+        var pageWidth = 210, pageHeight = 297, margin = 20, yPos = 30, pageNumber = 1;
+        var primaryBlue = [52,58,109], lightBlue = [135,154,234], darkGray=[44,62,80], lightGray=[149,165,166];
+
+        function addFooter(doc, pageNum, width, height){
+          doc.setFontSize(8); doc.setTextColor(lightGray[0],lightGray[1],lightGray[2]);
+          doc.text('Cabinet Saint Germain Audit - Confidentiel', margin, height-10);
+          doc.text('Baromètre Santé 2025', width/2, height-10, {align:'center'});
+          doc.text('Page ' + pageNum + '/X', width - margin, height-10, {align:'right'});
+        }
+        function checkNewPage(needed){
+          if(yPos + needed > pageHeight - 30){
+            doc.addPage(); pageNumber++; yPos = 30; addFooter(doc, pageNumber, pageWidth, pageHeight); return true;
+          }
+          return false;
+        }
+        function getQuestionDetails(fieldName){
+          var q = {
+            'profil': { text: 'Quel est votre profil professionnel ?' },
+            'age': { text: 'Dans quelle tranche d\'âge vous situez-vous ?' },
+            'sante_physique': { text: 'Comment évaluez-vous votre santé physique actuelle ?' },
+            'sante_psychologique': { text: 'Comment évaluez-vous votre santé psychologique actuelle ?' },
+            'travail_extra': { text: 'À quelle fréquence travaillez-vous le soir et/ou le week-end ?' },
+            'pression_echeances': { text: 'Ressentez-vous une pression liée aux échéances ?' },
+            'gestion_pression': { text: 'Comment gérez-vous cette pression ?' },
+            'charge_travail': { text: 'Votre charge de travail est-elle raisonnable ?' },
+            'sources_stress': { text: 'Quelles sont vos principales sources de stress ? (Plusieurs réponses possibles)' },
+            'symptomes_stress': { text: 'Ressentez-vous des symptômes physiques liés au stress ? (Plusieurs réponses possibles)' },
+            'ergonomie_poste': { text: 'Votre poste de travail est-il adapté en termes d\'ergonomie ?' },
+            'douleurs_poste': { text: 'Souffrez-vous de douleurs physiques liées à votre poste de travail ?' },
+            'consultation_pro_sante': { text: 'Avez-vous déjà consulté un professionnel de santé pour un problème lié au travail ?' },
+            'climat_social': { text: 'Comment jugez-vous le climat social dans votre cabinet ?' },
+            'soutien_equipe': { text: 'Vous sentez-vous soutenu par vos collègues et votre hiérarchie ?' },
+            'qvt': { text: 'Comment définiriez-vous votre qualité de vie au travail ?' },
+            'offre_restauration': { text: 'Disposez-vous d\'une offre de restauration de qualité ?' },
+            'temps_pause_dejeuner': { text: 'Combien de temps consacrez-vous à votre pause déjeuner ?' },
+            'alimentation_saine': { text: 'Estimez-vous avoir une alimentation saine ?' },
+            'grignotage': { text: 'Vous arrive-t-il de grignoter pendant votre temps de travail ?' },
+            'heures_sommeil': { text: 'Combien d\'heures de sommeil avez-vous en moyenne par nuit ?' },
+            'sommeil_suffisant': { text: 'Estimez-vous que votre temps de sommeil est suffisant ?' },
+            'qualite_sommeil': { text: 'Comment qualifieriez-vous la qualité de votre sommeil ?' },
+            'penser_travail_nuit': { text: 'Vous arrive-t-il de penser au travail pendant la nuit ?' },
+            'activite_physique': { text: 'Pratiquez-vous une activité physique régulière ?' },
+            'frequence_sport': { text: 'À quelle fréquence pratiquez-vous une activité physique ?' },
+            'obstacles_sport': { text: 'Quels sont les obstacles à la pratique sportive ?' },
+            'cabinet_facilite_sport': { text: 'Votre cabinet vous permet-il de pratiquer facilement une activité sportive ?' },
+            'prevention_cabinet': { text: 'Votre cabinet a-t-il mis en place des actions_
