@@ -339,15 +339,66 @@
                 var selectButton = document.getElementById('selectButton');
                 var fileInput = document.getElementById('fileInput');
                 var pdfButton = document.getElementById('pdfButton');
+                var dropZone = document.getElementById('dropZone');
+                
+                safeLog('Éléments trouvés - Bouton: ' + (selectButton ? 'OUI' : 'NON') + ', Input: ' + (fileInput ? 'OUI' : 'NON'));
                 
                 if (selectButton && fileInput) {
-                    selectButton.onclick = function() {
+                    // Méthode 1: onclick direct
+                    selectButton.onclick = function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        safeLog('Bouton cliqué');
                         fileInput.click();
                     };
                     
+                    // Méthode 2: addEventListener comme backup
+                    selectButton.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        safeLog('Bouton cliqué via addEventListener');
+                        fileInput.click();
+                    });
+                    
                     fileInput.onchange = function(event) {
+                        safeLog('Fichiers sélectionnés: ' + event.target.files.length);
                         handleFileSelection(event.target.files);
                     };
+                    
+                    // Ajout du support drag & drop sur la zone
+                    if (dropZone) {
+                        dropZone.onclick = function(e) {
+                            if (e.target.id !== 'selectButton') {
+                                e.preventDefault();
+                                safeLog('Zone cliquée');
+                                fileInput.click();
+                            }
+                        };
+                        
+                        dropZone.ondragover = function(e) {
+                            e.preventDefault();
+                            this.style.borderColor = '#2980b9';
+                            this.style.backgroundColor = '#ecf0f1';
+                        };
+                        
+                        dropZone.ondragleave = function(e) {
+                            e.preventDefault();
+                            this.style.borderColor = '#3498db';
+                            this.style.backgroundColor = '#f8f9fa';
+                        };
+                        
+                        dropZone.ondrop = function(e) {
+                            e.preventDefault();
+                            this.style.borderColor = '#3498db';
+                            this.style.backgroundColor = '#f8f9fa';
+                            safeLog('Fichiers déposés: ' + e.dataTransfer.files.length);
+                            handleFileSelection(e.dataTransfer.files);
+                        };
+                    }
+                    
+                    safeLog('Event listeners configurés avec succès');
+                } else {
+                    safeLog('ERREUR: Éléments non trouvés - Bouton: ' + !!selectButton + ', Input: ' + !!fileInput);
                 }
                 
                 if (pdfButton) {
@@ -663,7 +714,7 @@
                 for (var key in summary.profils) {
                     var count = summary.profils[key];
                     var percentage = ((count / summary.total) * 100).toFixed(1);
-                    html += '<li>' + key + ': ' + count + ' (' + percentage + '%)</li>';
+                    html += '<li>' + formatProfil(key) + ': ' + count + ' (' + percentage + '%)</li>';
                 }
                 html += '</ul>';
                 
@@ -672,7 +723,7 @@
                 for (var key in summary.ages) {
                     var count = summary.ages[key];
                     var percentage = ((count / summary.total) * 100).toFixed(1);
-                    html += '<li>' + key + ': ' + count + ' (' + percentage + '%)</li>';
+                    html += '<li>' + formatAge(key) + ': ' + count + ' (' + percentage + '%)</li>';
                 }
                 html += '</ul>';
                 
@@ -700,21 +751,6 @@
             } catch (error) {
                 handleError(error, 'displayDetailedResults');
             }
-        }
-
-        // Formatage des sources de stress
-        function formatStressSource(key) {
-            var mapping = {
-                'gestion_clients': 'Gestion des clients',
-                'complexite_dossiers': 'Complexité des dossiers',
-                'tenue_delais': 'Tenue des délais',
-                'pression_hierarchique': 'Pression hiérarchique',
-                'outils_inefficaces': 'Outils inefficaces',
-                'horaires_contraintes': 'Contraintes horaires',
-                'manque_formation': 'Manque de formation',
-                'pas_stresse': 'Pas de stress'
-            };
-            return mapping[key] || key;
         }
 
         // Création de tous les graphiques
@@ -896,130 +932,3 @@
                             borderWidth: 2
                         }]
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                max: 10,
-                                ticks: {
-                                    stepSize: 1
-                                }
-                            }
-                        },
-                        plugins: {
-                            legend: {
-                                display: false
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return 'Score moyen: ' + context.parsed.y.toFixed(1) + '/10';
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-                
-            } catch (error) {
-                handleError(error, 'createHealthChart');
-            }
-        }
-
-        // Graphique des sources de stress
-        function createStressChart() {
-            try {
-                var ctx = document.getElementById('stressChart');
-                if (!ctx) return;
-                
-                var data = analysisData.summary.stressSources;
-                if (!data || Object.keys(data).length === 0) {
-                    safeLog('Pas de données pour le graphique stress');
-                    return;
-                }
-                
-                // Tri et limitation aux top 5
-                var stressArray = [];
-                for (var key in data) {
-                    stressArray.push({key: key, count: data[key]});
-                }
-                stressArray.sort(function(a, b) { return b.count - a.count; });
-                
-                var labels = [];
-                var values = [];
-                
-                for (var i = 0; i < Math.min(5, stressArray.length); i++) {
-                    labels.push(formatStressSource(stressArray[i].key));
-                    values.push(stressArray[i].count);
-                }
-                
-                chartInstances.stress = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            data: values,
-                            backgroundColor: [
-                                'rgba(231, 76, 60, 0.7)',
-                                'rgba(230, 126, 34, 0.7)',
-                                'rgba(241, 196, 15, 0.7)',
-                                'rgba(52, 152, 219, 0.7)',
-                                'rgba(155, 89, 182, 0.7)'
-                            ],
-                            borderWidth: 2,
-                            borderColor: '#fff'
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    padding: 15,
-                                    font: {
-                                        size: 11
-                                    }
-                                }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        var label = context.label || '';
-                                        var value = context.parsed || 0;
-                                        return label + ': ' + value + ' mentions';
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-                
-            } catch (error) {
-                handleError(error, 'createStressChart');
-            }
-        }
-
-        // Fonctions de formatage
-        function formatProfil(key) {
-            var mapping = {
-                'auditeur': 'Auditeur/Auditrice',
-                'chef_mission': 'Chef de mission',
-                'directeur_mission': 'Directeur de mission'
-            };
-            return mapping[key] || key;
-        }
-
-        function formatAge(key) {
-            var mapping = {
-                'moins_25': 'Moins de 25 ans',
-                '25_30': '25-30 ans',
-                '30_40': '30-40 ans',
-                '40_50': '40-50 ans',
-                '50_60': '50-60 ans',
-                'plus_60': 'Plus de 60 ans'
-            };
-            return mapping[key] || key;
